@@ -1,0 +1,23 @@
+import { useEffect } from 'react';
+import { Routes, Route, useLocation } from 'react-router-dom';
+import Navbar from './components/Navbar';
+import Footer from './components/Footer';
+import EmptyState from './components/EmptyState';
+import Marketplace from './pages/Marketplace';
+import Placeholder from './pages/Placeholder';
+import ListingDetails from './pages/ListingDetails';
+import Auth from './pages/Auth';
+import Profile from './pages/Profile';
+import ForgotPassword from './pages/ForgotPassword';
+import Admin from './pages/Admin';
+import ProtectedRoute from './components/ProtectedRoute';
+export default function App() {
+ const { pathname } = useLocation();
+ useEffect(() => { window.scrollTo(0, 0); document.title = 'reLIVE — Give it another life.'; }, [pathname]);
+ return <><a href="#main-content" className="skip-link">Skip to content</a><Navbar/><main id="main-content" className="main-container"><Routes>
+ <Route path="/" element={<Marketplace/>}/><Route path="/marketplace" element={<Marketplace/>}/><Route path="/listing/:id" element={<ListingDetails/>}/>
+ <Route element={<ProtectedRoute/>}>{[['sell','sell'],['my-listings','listings'],['my-offers','offers'],['favourites','favourites'],['wallet','wallet']].map(([path,page]) => <Route key={path} path={path} element={<Placeholder page={page}/>}/>)}<Route path="/profile" element={<Profile/>}/></Route>
+ <Route element={<ProtectedRoute admin/>}><Route path="/admin" element={<Admin/>}/></Route>
+ <Route path="/login" element={<Auth key="login"/>}/><Route path="/register" element={<Auth key="register" register/>}/><Route path="/forgot-password" element={<ForgotPassword/>}/>
+ <Route path="*" element={<EmptyState title="A little off the beaten path" description="This page doesn’t exist. Let’s find your way back."/>}/></Routes></main><Footer/></>;
+}
