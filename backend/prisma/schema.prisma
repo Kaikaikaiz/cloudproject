@@ -17,6 +17,7 @@ model User {
   state                 String              @default("")
   city                  String              @default("")
   averageRating         Float               @default(0)
+  totalReviews          Int                 @default(0)
   completedTransactions Int                 @default(0)
   role                  String              @default("USER")
   tokenVersion          Int                 @default(0)
@@ -31,6 +32,10 @@ model User {
   walletTransactions    WalletTransaction[]
   purchases             Purchase[]          @relation("PurchaseBuyer")
   sales                 Purchase[]          @relation("PurchaseSeller")
+  buyingTransactions    Transaction[]       @relation("TransactionBuyer")
+  sellingTransactions   Transaction[]       @relation("TransactionSeller")
+  reviewsWritten        Review[]            @relation("ReviewAuthor")
+  reviewsReceived       Review[]            @relation("ReviewRecipient")
 }
 
 model Listing {
@@ -52,6 +57,7 @@ model Listing {
   favourites  Favourite[]
   offers      Offer[]
   purchase    Purchase?
+  transaction Transaction?
 
   @@index([status, createdAt])
   @@index([sellerId, createdAt])
@@ -154,7 +160,45 @@ model Purchase {
   requestKey         String
   createdAt          DateTime            @default(now())
   walletTransactions WalletTransaction[]
+  transaction        Transaction?
 
   @@unique([buyerId, requestKey])
   @@index([sellerId, createdAt])
+}
+
+model Transaction {
+  id            String   @id @default(cuid())
+  purchaseId    String   @unique
+  purchase      Purchase @relation(fields: [purchaseId], references: [id])
+  listingId     String   @unique
+  listing       Listing  @relation(fields: [listingId], references: [id])
+  buyerId       String
+  buyer         User     @relation("TransactionBuyer", fields: [buyerId], references: [id])
+  sellerId      String
+  seller        User     @relation("TransactionSeller", fields: [sellerId], references: [id])
+  // Price snapshots in sen; the API returns RM.
+  originalPrice Int
+  finalPrice    Int
+  status        String   @default("COMPLETED")
+  createdAt     DateTime @default(now())
+  reviews       Review[]
+
+  @@index([buyerId, createdAt])
+  @@index([sellerId, createdAt])
+}
+
+model Review {
+  id             String      @id @default(cuid())
+  transactionId  String
+  transaction    Transaction @relation(fields: [transactionId], references: [id])
+  reviewerId     String
+  reviewer       User        @relation("ReviewAuthor", fields: [reviewerId], references: [id])
+  reviewedUserId String
+  reviewedUser   User        @relation("ReviewRecipient", fields: [reviewedUserId], references: [id])
+  rating         Int
+  comment        String?
+  createdAt      DateTime    @default(now())
+
+  @@unique([transactionId, reviewerId])
+  @@index([reviewedUserId, createdAt])
 }

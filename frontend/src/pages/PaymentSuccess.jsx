@@ -132,6 +132,11 @@ export default function PaymentSuccess({ kind }) {
         </dl>
 
         <div className="profile-actions">
+          {!isTopUp && payment.transaction && (
+            <Button to={'/transactions/' + payment.transaction.id} variant="secondary">
+              View transaction & review
+            </Button>
+          )}
           {isTopUp && returnTo && <Button to={returnTo}>Return to checkout</Button>}
           <Button to="/wallet" variant={returnTo ? 'secondary' : 'primary'}>
             View wallet

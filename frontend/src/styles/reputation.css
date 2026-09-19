@@ -1,0 +1,142 @@
+.history-navigation {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 26px;
+}
+
+.history-navigation a {
+  padding: 12px 20px;
+  border-radius: 12px;
+  background: #f7f2fc;
+}
+
+.history-navigation a.active {
+  background: var(--lavender);
+  font-weight: 600;
+}
+
+.transaction-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+}
+
+.transaction-card,
+.public-reviews {
+  padding: 28px;
+}
+
+.transaction-card-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.transaction-card h2 {
+  font-size: 22px;
+  overflow-wrap: anywhere;
+  margin: 0;
+}
+
+.transaction-date,
+.review-card small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.reputation {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  align-items: center;
+  margin-top: 26px;
+  padding: 22px;
+  border-radius: 14px;
+  background: #f7f2fc;
+}
+
+.reputation > span {
+  font-size: 14px;
+}
+
+.rating-stars {
+  color: #927032;
+  letter-spacing: 2px;
+}
+
+.public-reviews {
+  margin-top: 24px;
+}
+
+.review-card {
+  padding: 20px 0;
+  border-top: 1px solid #eee7f2;
+}
+
+.review-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.review-form {
+  display: grid;
+  gap: 18px;
+  padding-top: 24px;
+  border-top: 1px solid #eee7f2;
+}
+
+.review-form h2,
+.review-form p {
+  margin: 0;
+}
+
+.review-rating {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  border: 0;
+  padding: 0;
+}
+
+.review-rating legend {
+  margin-bottom: 12px;
+}
+
+.review-rating label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.review-rating input {
+  accent-color: #8b71a4;
+}
+
+.review-comment {
+  display: grid;
+  gap: 10px;
+}
+
+.review-comment textarea {
+  width: 100%;
+  padding: 14px;
+  border: 1px solid #e7dfea;
+  border-radius: 12px;
+  font: inherit;
+  resize: vertical;
+}
+
+@media (max-width: 700px) {
+  .transaction-list {
+    grid-template-columns: 1fr;
+  }
+
+  .transaction-card,
+  .public-reviews {
+    padding: 22px;
+  }
+}

@@ -100,6 +100,9 @@ backend/
 | Offer Details | `/offers/:id` |
 | Favourites | `/favourites` |
 | Wallet | `/wallet` |
+| My Purchases / My Sales | `/my-purchases`, `/my-sales` |
+| Transaction Details & Review | `/transactions/:id` |
+| Public User Profile | `/users/:id` |
 | Mock Top Up | `/wallet/top-up` |
 | Confirm Top Up | `/wallet/top-up/:id` |
 | Top-up Success | `/wallet/top-up/:id/success` |
@@ -158,7 +161,24 @@ The server sends `allowedActions` for each offer. Responses include a `version`;
 
 Acceptance saves the agreement and reservation without taking payment. The buyer can then pay the agreed amount from Offer Details. Successful wallet payment marks the offer COMPLETED and appends a completion event to its timeline.
 
-## Wallet and mock payments
+## Purchase history and reputation
+
+My Purchases and My Sales are available from Wallet and Profile. Each successful payment creates one COMPLETED Transaction in the same database transaction as the balances and receipt. Existing successful purchases are backfilled by the history migration. Price snapshots are stored in sen: `originalPrice` uses the offer's original asking price for negotiated purchases, or the current asking price for Buy Now; `finalPrice` is the amount paid. Payment receipts keep their existing SUCCESS status.
+
+Open a transaction to review the other participant. Buyers can rate sellers and sellers can rate buyers, with one review per participant per transaction. Ratings must be whole numbers from 1 to 5; comments are optional and limited to 1,000 characters. Reviews are final and public. The server derives the recipient, checks completed status and participation, and rejects self-reviews and duplicates. A database unique constraint also prevents concurrent duplicate reviews.
+
+Review creation and reputation recalculation run together atomically. Average rating and total reviews count only reviews from completed transactions. Completed transaction counts include purchases and sales. Listing reports, removal and moderation status never subtract reputation. Profile edits cannot set these reputation fields.
+
+Public profiles display photo, name, State + City/Area, membership date, average stars, review count, completed transaction count and received reviews. They never expose email, phone, wallet balance, receipt details or authentication data. Seller names link to these profiles. Transaction histories and details are participant-only.
+
+| Method | Endpoint | Purpose |
+| --- | --- | --- |
+| GET | `/api/transactions?direction=purchases` | Own purchases; use `direction=sales` for sales |
+| GET | `/api/transactions/:id` | Participant-only details, reviews and `canReview` |
+| POST | `/api/transactions/:id/reviews` | Authenticated participant; numeric `rating`, optional `comment` |
+| GET | `/api/users/:id` | Public profile and received reviews |
+
+## Mock payment flow
 
 All balances and payments are simulated. FPX Online Banking and Touch 'n Go eWallet are local mock choices; they never contact a bank, e-wallet or payment API and require no real credentials. There is no withdrawal feature.
 

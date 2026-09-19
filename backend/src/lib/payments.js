@@ -23,6 +23,7 @@ export function serializeWalletTransaction(transaction) {
 }
 
 export const purchaseInclude = {
+  transaction: { select: { id: true } },
   buyer: { select: { id: true, name: true } },
   seller: { select: { id: true, name: true } },
 };

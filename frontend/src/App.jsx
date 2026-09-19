@@ -20,6 +20,9 @@ import TopUp from './pages/TopUp';
 import TopUpConfirmation from './pages/TopUpConfirmation';
 import Checkout from './pages/Checkout';
 import PaymentSuccess from './pages/PaymentSuccess';
+import Transactions from './pages/Transactions';
+import TransactionDetails from './pages/TransactionDetails';
+import PublicProfile from './pages/PublicProfile';
 export default function App() {
   const { pathname } = useLocation();
   useEffect(() => {
@@ -37,7 +40,14 @@ export default function App() {
           <Route path="/" element={<Marketplace />} />
           <Route path="/marketplace" element={<Marketplace />} />
           <Route path="/listing/:id" element={<ListingDetails />} />
+          <Route path="/users/:id" element={<PublicProfile />} />
           <Route element={<ProtectedRoute />}>
+            <Route
+              path="/my-purchases"
+              element={<Transactions direction="purchases" />}
+            />
+            <Route path="/my-sales" element={<Transactions direction="sales" />} />
+            <Route path="/transactions/:id" element={<TransactionDetails />} />
             <Route path="/wallet" element={<Wallet />} />
             <Route path="/wallet/top-up" element={<TopUp />} />
             <Route path="/wallet/top-up/:id" element={<TopUpConfirmation />} />

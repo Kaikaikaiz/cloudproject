@@ -8,6 +8,8 @@ import favouriteRoutes from './routes/favourites.js';
 import offerRoutes from './routes/offers.js';
 import walletRoutes from './routes/wallet.js';
 import purchaseRoutes from './routes/purchases.js';
+import transactionRoutes from './routes/transactions.js';
+import userRoutes from './routes/users.js';
 export const app = express();
 app.disable('x-powered-by');
 app.use(cors({ origin: config.frontendUrl, credentials: true }));
@@ -36,6 +38,8 @@ app.use('/api/favourites', favouriteRoutes);
 app.use('/api/offers', offerRoutes);
 app.use('/api/wallet', walletRoutes);
 app.use('/api/purchases', purchaseRoutes);
+app.use('/api/transactions', transactionRoutes);
+app.use('/api/users', userRoutes);
 app.use((_req, res) => res.status(404).json({ error: 'Route not found.' }));
 app.use((error, _req, res, _next) => {
   if (error.code === 'P2002')

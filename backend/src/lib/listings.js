@@ -29,6 +29,7 @@ export const listingInclude = {
       state: true,
       city: true,
       averageRating: true,
+      totalReviews: true,
       completedTransactions: true,
       createdAt: true,
     },

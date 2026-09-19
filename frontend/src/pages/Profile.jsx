@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { MapPin, Star, PackageCheck, UserRound } from 'lucide-react';
+import { MapPin, UserRound } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api, imageUrl } from '../lib/api';
 import { readImageFile } from '../lib/readImageFile';
@@ -9,6 +9,7 @@ import Input from '../components/Input';
 import Modal from '../components/Modal';
 import StatusBadge from '../components/StatusBadge';
 import LocationFields from '../components/LocationFields';
+import Reputation from '../components/Reputation';
 export default function Profile() {
   const { user, setUser, logout } = useAuth();
   const navigate = useNavigate();
@@ -17,6 +18,19 @@ export default function Profile() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  useEffect(() => {
+    let isActive = true;
+    api('/auth/me')
+      .then((data) => {
+        if (isActive) setUser(data.user);
+      })
+      .catch((requestError) => {
+        if (isActive) setError(requestError.message);
+      });
+    return () => {
+      isActive = false;
+    };
+  }, [setUser]);
   function edit() {
     setValues({
       name: user.name,
@@ -135,21 +149,17 @@ export default function Profile() {
             Edit Profile
           </Button>
         </div>
-        <div className="profile-stats">
-          <div>
-            <Star size={22} />
-            <strong>
-              {user.averageRating
-                ? user.averageRating.toFixed(1) + ' / 5'
-                : 'No ratings yet'}
-            </strong>
-            <span>Average rating</span>
-          </div>
-          <div>
-            <PackageCheck size={22} />
-            <strong>{user.completedTransactions}</strong>
-            <span>Completed transactions</span>
-          </div>
+        <Reputation user={user} />
+        <div className="profile-actions">
+          <Button to={'/users/' + user.id} variant="secondary">
+            Public profile & reviews
+          </Button>
+          <Button to="/my-purchases" variant="ghost">
+            My Purchases
+          </Button>
+          <Button to="/my-sales" variant="ghost">
+            My Sales
+          </Button>
         </div>
         <dl className="profile-contact">
           <div>

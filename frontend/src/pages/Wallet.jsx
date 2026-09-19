@@ -59,6 +59,14 @@ export default function Wallet() {
       <p className="payment-mock-notice">
         Demo wallet · All payments are simulated. No real money is moved.
       </p>
+      <div className="profile-actions">
+        <Button to="/my-purchases" variant="secondary">
+          My Purchases
+        </Button>
+        <Button to="/my-sales" variant="secondary">
+          My Sales
+        </Button>
+      </div>
 
       {isLoading ? (
         <LoadingState label="Opening your wallet…" />

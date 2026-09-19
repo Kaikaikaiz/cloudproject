@@ -144,6 +144,15 @@ router.post('/', async (req, res) => {
         amount,
         reference: createReference('RELIVE'),
         requestKey,
+        transaction: {
+          create: {
+            listingId: listing.id,
+            buyerId: req.user.id,
+            sellerId: listing.sellerId,
+            originalPrice: offer?.originalPrice ?? listing.price,
+            finalPrice: amount,
+          },
+        },
       },
       include: purchaseInclude,
     });

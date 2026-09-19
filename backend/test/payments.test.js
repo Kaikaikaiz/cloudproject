@@ -344,6 +344,11 @@ test('mock wallet payments and atomic purchases', async (suite) => {
         const paid = await request('/purchases', buyer, payload);
         assert.equal(paid.status, 201);
         assert.equal(await balance(buyer), 30);
+        const history = (
+          await request('/transactions/' + paid.body.purchase.transaction.id, buyer)
+        ).body.transaction;
+        assert.equal(history.originalPrice, 100);
+        assert.equal(history.finalPrice, 70);
         assert.equal(await balance(seller), 70);
         const completed = (await request('/offers/' + offer.id, buyer)).body.offer;
         assert.equal(completed.status, 'COMPLETED');
@@ -493,6 +498,216 @@ test('mock wallet payments and atomic purchases', async (suite) => {
         assert.equal(await balance(freeBuyer), 0);
       },
     );
+    await suite.test(
+      'completed history allows mutual reviews and keeps public profiles private',
+      async () => {
+        const seller = await createUser();
+        const buyer = await createUser();
+        const outsider = await createUser();
+        const listing = await createListing(seller, 0);
+        const payload = await checkout(buyer, listing);
+        const paid = await request('/purchases', buyer, payload);
+        const transactionId = paid.body.purchase.transaction.id;
+        const route = '/transactions/' + transactionId;
+
+        assert.equal((await request('/transactions')).status, 401);
+        assert.equal((await request(route, outsider)).status, 404);
+        assert.equal(
+          (await request(route + '/reviews', outsider, { rating: 5 })).status,
+          404,
+        );
+        assert.equal(
+          (await request('/transactions?direction=invalid', buyer)).status,
+          400,
+        );
+        assert.equal(
+          (await request('/transactions?direction=sales', buyer)).body.transactions
+            .length,
+          0,
+        );
+        assert.equal(
+          (await request('/transactions', outsider)).body.transactions.length,
+          0,
+        );
+
+        const purchases = (await request('/transactions?direction=purchases', buyer)).body
+          .transactions;
+        const sales = (await request('/transactions?direction=sales', seller)).body
+          .transactions;
+        assert.equal(purchases.length, 1);
+        assert.equal(sales[0].id, transactionId);
+        assert.equal(purchases[0].status, 'COMPLETED');
+        assert.equal(purchases[0].originalPrice, 0);
+        assert.equal(purchases[0].finalPrice, 0);
+        assert.equal(purchases[0].canReview, true);
+        assert.equal(
+          (await request('/purchases', buyer, payload)).body.purchase.transaction.id,
+          transactionId,
+        );
+        assert.equal(
+          await prisma.transaction.count({
+            where: { purchaseId: paid.body.purchase.id },
+          }),
+          1,
+        );
+
+        for (const rating of [0, 6, 2.5, '5', null]) {
+          assert.equal(
+            (await request(route + '/reviews', buyer, { rating })).status,
+            400,
+          );
+        }
+        assert.equal(
+          (
+            await request(route + '/reviews', buyer, {
+              rating: 5,
+              comment: 'x'.repeat(1001),
+            })
+          ).status,
+          400,
+        );
+        assert.equal(
+          (await request(route + '/reviews', buyer, { rating: 5, comment: {} })).status,
+          400,
+        );
+
+        const reviewed = await request(route + '/reviews', buyer, {
+          rating: 5,
+          comment: '  Friendly seller.  ',
+          reviewerId: outsider.id,
+          reviewedUserId: buyer.id,
+        });
+        assert.equal(reviewed.status, 201);
+        assert.equal(reviewed.body.review.reviewerId, buyer.id);
+        assert.equal(reviewed.body.review.reviewedUserId, seller.id);
+        assert.equal(reviewed.body.review.comment, 'Friendly seller.');
+        assert.equal(
+          (await request(route + '/reviews', buyer, { rating: 1 })).status,
+          409,
+        );
+        assert.equal((await request(route, buyer)).body.transaction.canReview, false);
+        assert.equal((await request(route, seller)).body.transaction.canReview, true);
+        assert.equal(
+          (await request(route + '/reviews', seller, { rating: 4 })).status,
+          201,
+        );
+
+        const profile = (await request('/users/' + seller.id)).body;
+        assert.equal(profile.user.averageRating, 5);
+        assert.equal(profile.user.totalReviews, 1);
+        assert.equal(profile.user.completedTransactions, 1);
+        assert.equal(profile.reviews[0].comment, 'Friendly seller.');
+        for (const field of [
+          'email',
+          'phone',
+          'passwordHash',
+          'walletBalance',
+          'tokenVersion',
+        ]) {
+          assert.equal(field in profile.user, false);
+          assert.equal(field in profile.reviews[0].reviewer, false);
+        }
+        assert.equal('transactionId' in profile.reviews[0], false);
+        assert.equal((await request('/users/' + buyer.id)).body.user.averageRating, 4);
+        const edited = await request(
+          '/profile',
+          seller,
+          {
+            name: seller.name,
+            email: seller.email,
+            averageRating: 1,
+            totalReviews: 99,
+            completedTransactions: 99,
+          },
+          'PATCH',
+        );
+        assert.equal(edited.status, 200);
+        assert.equal(edited.body.user.averageRating, 5);
+        assert.equal(edited.body.user.totalReviews, 1);
+        assert.equal(edited.body.user.completedTransactions, 1);
+        assert.equal((await request('/users/missing')).status, 404);
+
+        await prisma.listing.update({
+          where: { id: listing.id },
+          data: { status: 'REMOVED' },
+        });
+        assert.deepEqual((await request('/users/' + seller.id)).body, profile);
+      },
+    );
+
+    await suite.test(
+      'concurrent reviews recalculate averages once per transaction',
+      async () => {
+        const seller = await createUser();
+        const buyer = await createUser();
+        const transactionIds = [];
+
+        for (let index = 0; index < 2; index += 1) {
+          const listing = await createListing(seller, 0);
+          const paid = await request('/purchases', buyer, await checkout(buyer, listing));
+          transactionIds.push(paid.body.purchase.transaction.id);
+        }
+
+        const results = await Promise.all(
+          transactionIds.map((id, index) =>
+            request('/transactions/' + id + '/reviews', buyer, { rating: index ? 5 : 2 }),
+          ),
+        );
+        for (let index = 0; index < results.length; index += 1) {
+          assert.ok([201, 409].includes(results[index].status));
+          if (results[index].status === 409) {
+            assert.equal(
+              (
+                await request(
+                  '/transactions/' + transactionIds[index] + '/reviews',
+                  buyer,
+                  { rating: index ? 5 : 2 },
+                )
+              ).status,
+              201,
+            );
+          }
+        }
+
+        const duplicates = await Promise.all([
+          request('/transactions/' + transactionIds[0] + '/reviews', seller, {
+            rating: 4,
+          }),
+          request('/transactions/' + transactionIds[0] + '/reviews', seller, {
+            rating: 4,
+          }),
+        ]);
+        assert.equal(duplicates.filter((result) => result.status === 201).length, 1);
+        assert.equal(duplicates.filter((result) => result.status === 409).length, 1);
+        const reputation = (await request('/users/' + seller.id)).body.user;
+        assert.equal(reputation.averageRating, 3.5);
+        assert.equal(reputation.totalReviews, 2);
+        assert.equal(reputation.completedTransactions, 2);
+        assert.equal((await request('/users/' + buyer.id)).body.user.totalReviews, 1);
+      },
+    );
+
+    await suite.test('incomplete transactions and self-reviews are blocked', async () => {
+      const seller = await createUser();
+      const buyer = await createUser();
+      const listing = await createListing(seller, 0);
+      const paid = await request('/purchases', buyer, await checkout(buyer, listing));
+      const id = paid.body.purchase.transaction.id;
+      await prisma.transaction.update({ where: { id }, data: { status: 'PENDING' } });
+      assert.equal(
+        (await request('/transactions/' + id + '/reviews', buyer, { rating: 5 })).status,
+        409,
+      );
+      await prisma.transaction.update({
+        where: { id },
+        data: { status: 'COMPLETED', sellerId: buyer.id },
+      });
+      assert.equal(
+        (await request('/transactions/' + id + '/reviews', buyer, { rating: 5 })).status,
+        403,
+      );
+      assert.equal(await prisma.review.count({ where: { transactionId: id } }), 0);
+    });
   } finally {
     await new Promise((resolve) => server.close(resolve));
     await prisma.$disconnect();

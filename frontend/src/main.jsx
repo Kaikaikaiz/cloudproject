@@ -6,6 +6,7 @@ import { AuthProvider } from './context/AuthContext';
 import './styles.css';
 import './styles/offers.css';
 import './styles/payments.css';
+import './styles/reputation.css';
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <BrowserRouter>

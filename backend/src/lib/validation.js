@@ -70,6 +70,7 @@ export const publicUser = {
   state: true,
   city: true,
   averageRating: true,
+  totalReviews: true,
   completedTransactions: true,
   createdAt: true,
   role: true,
