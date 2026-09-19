@@ -9,6 +9,9 @@ export function getOfferMessage(offer, userId) {
     case 'CANCELLED':
       return 'The buyer cancelled this negotiation.';
     case 'CLOSED':
+      if (offer.closeReason === 'LISTING_SOLD') {
+        return 'The listing was purchased. This negotiation is closed.';
+      }
       return offer.closeReason === 'LISTING_WITHDRAWN'
         ? 'The seller withdrew this listing.'
         : 'Another offer was accepted for this listing.';
@@ -27,6 +30,9 @@ export function getOfferMessage(offer, userId) {
 
 export function getHistoryMessage(entry, offer) {
   if (entry.action === 'CLOSED') {
+    if (offer.closeReason === 'LISTING_SOLD') {
+      return 'Negotiation closed because the listing was purchased.';
+    }
     return offer.closeReason === 'LISTING_WITHDRAWN'
       ? 'Negotiation closed because the listing was withdrawn.'
       : 'Negotiation closed because another offer was accepted.';

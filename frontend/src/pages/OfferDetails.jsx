@@ -112,10 +112,23 @@ export default function OfferDetails() {
         </p>
 
         {offer.status === 'ACCEPTED' && (
-          <p className="field-hint">
-            Your agreement is saved. Payment and transaction completion are not available
-            yet.
-          </p>
+          isBuyer ? (
+            <div className="profile-actions">
+              <Button to={'/checkout/' + offer.listingId + '?offer=' + offer.id}>
+                Pay {rm(offer.agreedPrice)} with wallet
+              </Button>
+            </div>
+          ) : (
+            <p className="field-hint">Waiting for the buyer to pay the agreed amount.</p>
+          )
+        )}
+
+        {offer.purchase && (
+          <div className="profile-actions">
+            <Button to={'/purchases/' + offer.purchase.id} variant="secondary">
+              View payment receipt
+            </Button>
+          </div>
         )}
 
         {canViewListing && (

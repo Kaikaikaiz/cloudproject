@@ -8,7 +8,6 @@ import StatusBadge from '../components/StatusBadge';
 import EmptyState from '../components/EmptyState';
 import LoadingState from '../components/LoadingState';
 import Button from '../components/Button';
-import Modal from '../components/Modal';
 import ListingGallery from '../components/ListingGallery';
 import SellerSummary from '../components/SellerSummary';
 import MakeOfferModal from '../components/MakeOfferModal';
@@ -69,6 +68,10 @@ export default function ListingDetails() {
     if (isOwner || listing.status !== 'ACTIVE') return;
     if (!user) {
       navigate('/login', { state: { from: location.pathname } });
+      return;
+    }
+    if (action === 'Buy Now') {
+      navigate('/checkout/' + listing.id);
       return;
     }
     setDialog(action);
@@ -173,7 +176,7 @@ export default function ListingDetails() {
             </>
           ) : (
             <small>
-              Make an offer to agree on a price with the seller. Buy Now is coming soon.
+              Make an offer or buy this find now using your reLIVE demo wallet.
             </small>
           )}
           {actionError && (
@@ -188,17 +191,6 @@ export default function ListingDetails() {
           )}
         </div>
       </div>
-      <Modal
-        open={dialog === 'Buy Now'}
-        onClose={() => setDialog('')}
-        title="Buy Now · coming soon"
-      >
-        <p className="modal-copy">
-          You’ll soon be able to buy this find through reLIVE. No offer, purchase,
-          reservation or payment has been made.
-        </p>
-        <Button onClick={() => setDialog('')}>Got it</Button>
-      </Modal>
       <MakeOfferModal
         listing={listing}
         open={dialog === 'Make Offer'}

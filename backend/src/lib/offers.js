@@ -24,6 +24,7 @@ export const offerInclude = {
   buyer: { select: participantFields },
   seller: { select: participantFields },
   history: { orderBy: { id: 'asc' } },
+  purchase: { select: { id: true } },
 };
 
 export function parseOfferAmount(value) {

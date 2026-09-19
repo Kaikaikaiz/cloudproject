@@ -8,25 +8,29 @@ datasource db {
 }
 
 model User {
-  id                    String         @id @default(cuid())
-  email                 String         @unique
+  id                    String              @id @default(cuid())
+  email                 String              @unique
   name                  String
   passwordHash          String
-  phone                 String         @default("")
+  phone                 String              @default("")
   profileImage          String?
-  state                 String         @default("")
-  city                  String         @default("")
-  averageRating         Float          @default(0)
-  completedTransactions Int            @default(0)
-  role                  String         @default("USER")
-  tokenVersion          Int            @default(0)
-  createdAt             DateTime       @default(now())
-  updatedAt             DateTime       @updatedAt
+  state                 String              @default("")
+  city                  String              @default("")
+  averageRating         Float               @default(0)
+  completedTransactions Int                 @default(0)
+  role                  String              @default("USER")
+  tokenVersion          Int                 @default(0)
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
   listings              Listing[]
   favourites            Favourite[]
-  offersMade            Offer[]        @relation("OfferBuyer")
-  offersReceived        Offer[]        @relation("OfferSeller")
+  offersMade            Offer[]             @relation("OfferBuyer")
+  offersReceived        Offer[]             @relation("OfferSeller")
   offerHistory          OfferHistory[]
+  walletBalance         Int                 @default(0)
+  walletTransactions    WalletTransaction[]
+  purchases             Purchase[]          @relation("PurchaseBuyer")
+  sales                 Purchase[]          @relation("PurchaseSeller")
 }
 
 model Listing {
@@ -47,6 +51,7 @@ model Listing {
   images      ListingImage[]
   favourites  Favourite[]
   offers      Offer[]
+  purchase    Purchase?
 
   @@index([status, createdAt])
   @@index([sellerId, createdAt])
@@ -91,6 +96,7 @@ model Offer {
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
   history       OfferHistory[]
+  purchase      Purchase?
 
   @@index([buyerId, updatedAt])
   @@index([sellerId, updatedAt])
@@ -108,4 +114,47 @@ model OfferHistory {
   createdAt DateTime @default(now())
 
   @@index([offerId, id])
+}
+
+model WalletTransaction {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id])
+  type       String
+  // Positive amounts in sen. PURCHASE is a debit; TOP_UP and SALE are credits.
+  amount     Int
+  method     String
+  status     String    @default("PENDING")
+  reference  String
+  requestKey String?
+  purchaseId String?
+  purchase   Purchase? @relation(fields: [purchaseId], references: [id])
+  createdAt  DateTime  @default(now())
+
+  @@unique([userId, requestKey])
+  @@unique([userId, reference])
+  @@index([userId, createdAt])
+}
+
+model Purchase {
+  id                 String              @id @default(cuid())
+  listingId          String              @unique
+  listing            Listing             @relation(fields: [listingId], references: [id])
+  buyerId            String
+  buyer              User                @relation("PurchaseBuyer", fields: [buyerId], references: [id])
+  sellerId           String
+  seller             User                @relation("PurchaseSeller", fields: [sellerId], references: [id])
+  offerId            String?             @unique
+  offer              Offer?              @relation(fields: [offerId], references: [id])
+  listingTitle       String
+  amount             Int
+  method             String              @default("WALLET")
+  status             String              @default("SUCCESS")
+  reference          String              @unique
+  requestKey         String
+  createdAt          DateTime            @default(now())
+  walletTransactions WalletTransaction[]
+
+  @@unique([buyerId, requestKey])
+  @@index([sellerId, createdAt])
 }

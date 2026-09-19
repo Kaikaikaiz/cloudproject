@@ -4,7 +4,6 @@ import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import EmptyState from './components/EmptyState';
 import Marketplace from './pages/Marketplace';
-import Placeholder from './pages/Placeholder';
 import ListingDetails from './pages/ListingDetails';
 import Auth from './pages/Auth';
 import Profile from './pages/Profile';
@@ -16,6 +15,11 @@ import MyListings from './pages/MyListings';
 import Favourites from './pages/Favourites';
 import Offers from './pages/Offers';
 import OfferDetails from './pages/OfferDetails';
+import Wallet from './pages/Wallet';
+import TopUp from './pages/TopUp';
+import TopUpConfirmation from './pages/TopUpConfirmation';
+import Checkout from './pages/Checkout';
+import PaymentSuccess from './pages/PaymentSuccess';
 export default function App() {
   const { pathname } = useLocation();
   useEffect(() => {
@@ -34,9 +38,13 @@ export default function App() {
           <Route path="/marketplace" element={<Marketplace />} />
           <Route path="/listing/:id" element={<ListingDetails />} />
           <Route element={<ProtectedRoute />}>
-            {[['wallet', 'wallet']].map(([path, page]) => (
-              <Route key={path} path={path} element={<Placeholder page={page} />} />
-            ))}
+            <Route path="/wallet" element={<Wallet />} />
+            <Route path="/wallet/top-up" element={<TopUp />} />
+            <Route path="/wallet/top-up/:id" element={<TopUpConfirmation />} />
+            <Route path="/wallet/top-up/:id/success" element={<PaymentSuccess kind="top-up" />} />
+            <Route path="/checkout/:listingId" element={<Checkout />} />
+            <Route path="/purchases/:id" element={<PaymentSuccess kind="purchase" />} />
+            <Route path="/purchases/:id/success" element={<PaymentSuccess kind="purchase" />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/sell" element={<ListingForm key="create" />} />
             <Route path="/listing/:id/edit" element={<ListingForm key="edit" />} />
