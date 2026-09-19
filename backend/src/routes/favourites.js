@@ -1,10 +1,10 @@
 import { Router } from 'express';
 import { prisma } from '../lib/prisma.js';
-import { requireAuth } from '../middleware/requireAuth.js';
+import { requireAuth, requireMember } from '../middleware/requireAuth.js';
 import { fail } from '../lib/validation.js';
 import { listingInclude, serializeListing } from '../lib/listings.js';
 const router = Router();
-router.use(requireAuth);
+router.use(requireAuth, requireMember);
 router.get('/', async (req, res) => {
   const saved = await prisma.favourite.findMany({
     where: { userId: req.user.id, listing: { status: 'ACTIVE' } },

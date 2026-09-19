@@ -124,7 +124,7 @@ backend/
 - `VITE_API_URL` configures the frontend API base URL.
 - The hero retains its local SVG illustrations. Listing photos are real local uploads. Google Fonts is optional; system sans-serif fallbacks work offline.
 - Make Offer starts a real negotiation. Buyers and sellers can take turns accepting, rejecting or countering. Buyers can cancel an open negotiation. Favourites are persisted, and self-favouriting/self-bargaining are blocked by the backend.
-- Buy Now and accepted offers use the simulated wallet. Admin management tools remain placeholders. There is no chat system, real payment processing, seller withdrawal, external image service or AWS integration.
+- Buy Now and accepted offers use the simulated wallet. The fixed administrator handles reports and listing moderation only, with trading, wallet top-ups and reviewing disabled for this account. There is no chat system, real payment processing, seller withdrawal, external image service or AWS integration.
 
 ## Listing management
 Create a listing at `/sell`; it becomes ACTIVE immediately. Photos are optional, with a maximum of five PNG/JPEG/WebP files, up to 2 MB each. The first photo is the cover. The server validates count, file type and signature, generates filenames, and stores them in `backend/uploads`. Editing can retain/remove existing images and add replacements; removed listing image files are cleaned up.
@@ -253,6 +253,31 @@ Create/edit requests contain the listing fields plus an `images` array of image 
 Technical references: [Vite guide](https://vite.dev/guide/), [Prisma v6 schema](https://www.prisma.io/docs/orm/v6/prisma-schema/overview).
 
 ## Fixed administrator
+
+### Reports and moderation
+
+Members can report another member's ACTIVE listing from Listing Details. Reasons are Scam / Fraud, Inappropriate Content, Prohibited Item, Misleading Information, Duplicate Listing, and Other. An optional description allows up to 2,000 characters. Self-reports and administrator-submitted reports are blocked. A partial unique index prevents duplicate PENDING/REVIEWING reports from the same member for one listing, including concurrent submissions.
+
+The existing fixed administrator opens `/admin` for Pending Reports, Under Review and Resolved Reports. Opening the detail page is read-only; **Start investigation** explicitly marks reports REVIEWING and hides an ACTIVE listing as UNDER_REVIEW. The detail page includes the full listing and images and a link to the seller's public profile. No user-management or payment-management tools are provided.
+
+- **Request Revision:** listing becomes NEEDS_REVISION; the reason appears in My Listings, Listing Details and the edit form. The seller edits and presses **Resubmit for Review**, changing it to UNDER_REVIEW. Reports stay in the Under Review queue.
+- **Approve listing:** an UNDER_REVIEW listing returns to ACTIVE and its reports become ACTION_TAKEN.
+- **Dismiss report:** reports become REJECTED and an otherwise valid listing returns to ACTIVE.
+- **Remove listing:** listing becomes REMOVED and reports become ACTION_TAKEN. All data and images remain stored.
+- **Restore listing:** a removed listing returns to its previous availability. Previously sold, reserved or withdrawn listings retain that state rather than becoming available for another purchase.
+
+Decisions require an admin reason, save `reviewedAt` on resolution, and update all open reports for the listing together. Requests include report `version` and `listingUpdatedAt`; stale decisions return 409. Hiding a listing closes open negotiations with a moderation reason. Existing accepted reservations and completed purchases are preserved. Reserved/sold listings cannot be sent for seller revision. Moderation does not delete listings or alter wallet balances, reviews or reputation.
+
+| Method | Endpoint | Purpose |
+| --- | --- | --- |
+| POST | `/api/reports` | Member; `listingId`, `reason`, optional `description` |
+| GET | `/api/admin/reports?group=pending` | Admin; `pending`, `reviewing`, or `resolved`, with dashboard counts |
+| GET | `/api/admin/reports/:id` | Admin; report and full listing, including hidden listings |
+| POST | `/api/admin/reports/:id/actions` | Admin; `action`, `adminReason`, `version`, `listingUpdatedAt` |
+
+Actions: `investigate`, `dismiss`, `revision`, `remove`, `restore`, `approve`. Reports remain private to the administrator; sellers see the moderation reason without reporter details. Preserve the report partial unique index in future migrations.
+
+### Account setup
 Default email: `admin@relive.local`. There is no hard-coded default password.
 
 `npm run setup:auth` creates the fixed account with ID `relive-fixed-admin`. It preserves an existing hash and refuses to turn an existing regular account into an admin. Re-running seed updates the same account and invalidates its previous sessions.

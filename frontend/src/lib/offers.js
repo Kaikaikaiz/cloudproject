@@ -9,6 +9,9 @@ export function getOfferMessage(offer, userId) {
     case 'CANCELLED':
       return 'The buyer cancelled this negotiation.';
     case 'CLOSED':
+      if (offer.closeReason === 'LISTING_MODERATED') {
+        return 'The listing was hidden for moderation. This negotiation is closed.';
+      }
       if (offer.closeReason === 'LISTING_SOLD') {
         return 'The listing was purchased. This negotiation is closed.';
       }
@@ -30,6 +33,9 @@ export function getOfferMessage(offer, userId) {
 
 export function getHistoryMessage(entry, offer) {
   if (entry.action === 'CLOSED') {
+    if (offer.closeReason === 'LISTING_MODERATED') {
+      return 'Negotiation closed because the listing was hidden for moderation.';
+    }
     if (offer.closeReason === 'LISTING_SOLD') {
       return 'Negotiation closed because the listing was purchased.';
     }

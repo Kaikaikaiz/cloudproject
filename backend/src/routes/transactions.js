@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { prisma } from '../lib/prisma.js';
-import { requireAuth } from '../middleware/requireAuth.js';
+import { requireAuth, requireMember } from '../middleware/requireAuth.js';
 import { fail } from '../lib/validation.js';
 
 const router = Router();
@@ -67,7 +67,7 @@ router.get('/:id', async (req, res) => {
   res.json({ transaction: serializeTransaction(transaction, req.user.id) });
 });
 
-router.post('/:id/reviews', async (req, res) => {
+router.post('/:id/reviews', requireMember, async (req, res) => {
   const { rating, comment = '' } = req.body || {};
   if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
     fail('Choose a whole-number rating from 1 to 5.');

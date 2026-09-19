@@ -7,6 +7,7 @@ import StatusBadge from '../components/StatusBadge';
 import LoadingState from '../components/LoadingState';
 import EmptyState from '../components/EmptyState';
 import Modal from '../components/Modal';
+import ModerationNotice from '../components/ModerationNotice';
 export default function MyListings() {
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -86,6 +87,7 @@ export default function MyListings() {
                 {statusLabel(listing.status)}
               </StatusBadge>
               <ListingCard listing={listing} />
+              <ModerationNotice listing={listing} />
               <div className="listing-manage-actions">
                 {editableStatuses.includes(listing.status) && (
                   <Button to={'/listing/' + listing.id + '/edit'} variant="secondary">

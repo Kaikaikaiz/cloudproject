@@ -8,7 +8,8 @@ import ListingDetails from './pages/ListingDetails';
 import Auth from './pages/Auth';
 import Profile from './pages/Profile';
 import ForgotPassword from './pages/ForgotPassword';
-import Admin from './pages/Admin';
+import Admin from './pages/AdminReports';
+import AdminReportDetails from './pages/AdminReportDetails';
 import ProtectedRoute from './components/ProtectedRoute';
 import ListingForm from './pages/ListingForm';
 import MyListings from './pages/MyListings';
@@ -76,6 +77,7 @@ export default function App() {
           </Route>
           <Route element={<ProtectedRoute admin />}>
             <Route path="/admin" element={<Admin />} />
+            <Route path="/admin/reports/:id" element={<AdminReportDetails />} />
           </Route>
           <Route path="/login" element={<Auth key="login" />} />
           <Route path="/register" element={<Auth key="register" register />} />

@@ -15,6 +15,9 @@ export default function ProtectedRoute({ admin = false }) {
       </div>
     );
   if (!user) return <Navigate to="/login" state={{ from: location.pathname }} replace />;
+  if (!admin && user.role === 'ADMIN' && location.pathname !== '/profile') {
+    return <Navigate to="/admin" replace />;
+  }
   if (admin && user.role !== 'ADMIN')
     return (
       <EmptyState

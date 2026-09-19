@@ -27,6 +27,7 @@ export default function ListingForm() {
   const [images, setImages] = useState([]);
   const [listingUpdatedAt, setListingUpdatedAt] = useState('');
   const [needsRevision, setNeedsRevision] = useState(false);
+  const [moderationReason, setModerationReason] = useState('');
   const [loading, setLoading] = useState(!!id);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -62,6 +63,7 @@ export default function ListingForm() {
         setImages(listing.images.map((image) => image.url));
         setListingUpdatedAt(listing.updatedAt);
         setNeedsRevision(listing.status === 'NEEDS_REVISION');
+        setModerationReason(listing.moderationReason || '');
       })
       .catch((err) => {
         if (active) setUnavailable(err.message);
@@ -157,6 +159,12 @@ export default function ListingForm() {
         </div>
       </div>
       <form className="surface listing-form" onSubmit={handleSubmit}>
+        {needsRevision && (
+          <div className="moderation-notice">
+            <strong>Your listing requires revision</strong>
+            <p>{moderationReason}</p>
+          </div>
+        )}
         <fieldset disabled={busy}>
           <legend className="sr-only">Listing details</legend>
           <Input
@@ -233,7 +241,7 @@ export default function ListingForm() {
             {busy
               ? 'Saving…'
               : needsRevision
-                ? 'Submit for review'
+                ? 'Resubmit for Review'
                 : id
                   ? 'Save changes'
                   : 'Publish listing'}

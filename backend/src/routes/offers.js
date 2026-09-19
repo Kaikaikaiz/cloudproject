@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { prisma } from '../lib/prisma.js';
 import { fail } from '../lib/validation.js';
-import { requireAuth } from '../middleware/requireAuth.js';
+import { requireAuth, requireMember } from '../middleware/requireAuth.js';
 import {
   closeOpenOffers,
   findParticipantOffer,
@@ -14,7 +14,7 @@ import {
 
 const router = Router();
 
-router.use(requireAuth);
+router.use(requireAuth, requireMember);
 router.use((_req, res, next) => {
   res.set('Cache-Control', 'no-store');
   next();

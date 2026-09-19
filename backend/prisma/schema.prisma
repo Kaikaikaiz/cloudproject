@@ -18,6 +18,7 @@ model User {
   city                  String              @default("")
   averageRating         Float               @default(0)
   totalReviews          Int                 @default(0)
+  reports               Report[]
   completedTransactions Int                 @default(0)
   role                  String              @default("USER")
   tokenVersion          Int                 @default(0)
@@ -39,28 +40,49 @@ model User {
 }
 
 model Listing {
-  id          String         @id @default(cuid())
-  sellerId    String
-  seller      User           @relation(fields: [sellerId], references: [id])
-  title       String
-  description String
+  id                       String         @id @default(cuid())
+  sellerId                 String
+  seller                   User           @relation(fields: [sellerId], references: [id])
+  title                    String
+  description              String
   // Integer sen; API accepts and returns RM with two decimal places.
-  price       Int
-  category    String
-  condition   String
-  state       String
-  city        String
-  status      String         @default("ACTIVE")
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
-  images      ListingImage[]
-  favourites  Favourite[]
-  offers      Offer[]
-  purchase    Purchase?
-  transaction Transaction?
+  price                    Int
+  category                 String
+  condition                String
+  state                    String
+  city                     String
+  status                   String         @default("ACTIVE")
+  createdAt                DateTime       @default(now())
+  updatedAt                DateTime       @updatedAt
+  images                   ListingImage[]
+  favourites               Favourite[]
+  offers                   Offer[]
+  purchase                 Purchase?
+  transaction              Transaction?
+  moderationReason         String?
+  moderationPreviousStatus String?
+  reports                  Report[]
 
   @@index([status, createdAt])
   @@index([sellerId, createdAt])
+}
+
+model Report {
+  id          String    @id @default(cuid())
+  listingId   String
+  listing     Listing   @relation(fields: [listingId], references: [id])
+  reporterId  String
+  reporter    User      @relation(fields: [reporterId], references: [id])
+  reason      String
+  description String?
+  status      String    @default("PENDING")
+  adminReason String?
+  createdAt   DateTime  @default(now())
+  reviewedAt  DateTime?
+  version     Int       @default(0)
+
+  @@index([status, createdAt])
+  @@index([listingId])
 }
 
 model ListingImage {

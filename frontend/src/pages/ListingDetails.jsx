@@ -11,6 +11,8 @@ import Button from '../components/Button';
 import ListingGallery from '../components/ListingGallery';
 import SellerSummary from '../components/SellerSummary';
 import MakeOfferModal from '../components/MakeOfferModal';
+import ReportListing from '../components/ReportListing';
+import ModerationNotice from '../components/ModerationNotice';
 export default function ListingDetails() {
   const { id } = useParams();
   const { user } = useAuth();
@@ -48,7 +50,7 @@ export default function ListingDetails() {
     setFavourite(false);
     setActionError('');
     setFavouriteReady(!user);
-    if (user)
+    if (user && user.role !== 'ADMIN')
       api('/favourites/' + id)
         .then((data) => {
           if (active) {
@@ -104,7 +106,7 @@ export default function ListingDetails() {
       </div>
     );
   if (!listing) return null;
-  const disabled = isOwner || listing.status !== 'ACTIVE';
+  const disabled = isOwner || user?.role === 'ADMIN' || listing.status !== 'ACTIVE';
   return (
     <section className="page-section">
       <Link className="back-link" to="/">
@@ -133,6 +135,10 @@ export default function ListingDetails() {
           <p className="listing-description">{listing.description}</p>
           <small>Listed {new Date(listing.createdAt).toLocaleDateString('en-MY')}</small>
           <SellerSummary seller={listing.seller} />
+          {isOwner && <ModerationNotice listing={listing} />}
+          {!isOwner && user?.role === 'USER' && listing.status === 'ACTIVE' && (
+            <ReportListing key={listing.id} listingId={listing.id} />
+          )}
           <div className="buyer-actions">
             <Button
               disabled={disabled}

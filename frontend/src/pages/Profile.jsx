@@ -154,12 +154,16 @@ export default function Profile() {
           <Button to={'/users/' + user.id} variant="secondary">
             Public profile & reviews
           </Button>
-          <Button to="/my-purchases" variant="ghost">
-            My Purchases
-          </Button>
-          <Button to="/my-sales" variant="ghost">
-            My Sales
-          </Button>
+          {user.role !== 'ADMIN' && (
+            <>
+              <Button to="/my-purchases" variant="ghost">
+                My Purchases
+              </Button>
+              <Button to="/my-sales" variant="ghost">
+                My Sales
+              </Button>
+            </>
+          )}
         </div>
         <dl className="profile-contact">
           <div>

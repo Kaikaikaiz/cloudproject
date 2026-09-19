@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { prisma } from '../lib/prisma.js';
-import { requireAuth } from '../middleware/requireAuth.js';
+import { requireAuth, requireMember } from '../middleware/requireAuth.js';
 import { fail } from '../lib/validation.js';
 import {
   listingValues,
@@ -43,7 +43,7 @@ router.get('/mine', requireAuth, async (req, res) => {
   });
   res.json({ listings: listings.map(serializeListing) });
 });
-router.post('/', requireAuth, async (req, res) => {
+router.post('/', requireAuth, requireMember, async (req, res) => {
   const values = listingValues(req.body || {});
   const images = validateImages(req.body.images ?? []);
   const saved = await saveImages(images);
@@ -77,7 +77,7 @@ router.get('/:id', async (req, res, next) => {
     res.json({ listing: serializeListing(listing) });
   });
 });
-router.patch('/:id', requireAuth, async (req, res) => {
+router.patch('/:id', requireAuth, requireMember, async (req, res) => {
   const old = await owned(req.params.id, req.user.id);
   if (!editableStatuses.includes(old.status))
     fail('Only ACTIVE or NEEDS_REVISION listings can be edited.', 409);
@@ -121,7 +121,7 @@ router.patch('/:id', requireAuth, async (req, res) => {
   );
   res.json({ listing: serializeListing(listing) });
 });
-router.post('/:id/withdraw', requireAuth, async (req, res) => {
+router.post('/:id/withdraw', requireAuth, requireMember, async (req, res) => {
   const listing = await owned(req.params.id, req.user.id);
   if (!withdrawableStatuses.includes(listing.status))
     fail('This listing cannot be withdrawn in its current status.', 409);

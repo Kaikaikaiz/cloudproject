@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import { ArrowUpRight, Menu, X, Heart, UserRound } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 const links = [
   ['/', 'Marketplace'],
   ['/sell', 'Sell'],
@@ -23,6 +24,15 @@ export function Logo() {
 }
 export default function Navbar() {
   const [open, setOpen] = useState(false);
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'ADMIN';
+  const visibleLinks = isAdmin
+    ? [
+        ['/', 'Marketplace'],
+        ['/admin', 'Reports'],
+        ['/profile', 'Profile'],
+      ]
+    : links;
   return (
     <header className="site-header">
       <div className="nav-wrap">
@@ -41,16 +51,18 @@ export default function Navbar() {
           className={open ? 'nav-links is-open' : 'nav-links'}
           aria-label="Main navigation"
         >
-          {links.map(([to, label]) => (
+          {visibleLinks.map(([to, label]) => (
             <NavLink key={to} end={to === '/'} to={to} onClick={() => setOpen(false)}>
               {label === 'Favourites' && <Heart size={15} />}{' '}
               {label === 'Profile' && <UserRound size={15} />} {label}
             </NavLink>
           ))}
         </nav>
-        <Link className="nav-sell" to="/sell">
-          Sell an item <ArrowUpRight size={17} />
-        </Link>
+        {!isAdmin && (
+          <Link className="nav-sell" to="/sell">
+            Sell an item <ArrowUpRight size={17} />
+          </Link>
+        )}
       </div>
     </header>
   );

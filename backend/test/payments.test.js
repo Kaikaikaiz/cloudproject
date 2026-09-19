@@ -708,6 +708,241 @@ test('mock wallet payments and atomic purchases', async (suite) => {
       );
       assert.equal(await prisma.review.count({ where: { transactionId: id } }), 0);
     });
+    await suite.test(
+      'report moderation protects ownership and supports revision, approval and restore',
+      async () => {
+        const seller = await createUser();
+        const reporter = await createUser();
+        const otherReporter = await createUser();
+        const admin = await createUser();
+        await prisma.user.update({ where: { id: admin.id }, data: { role: 'ADMIN' } });
+        const listing = await createListing(seller, 50);
+
+        const reportBody = {
+          listingId: listing.id,
+          reason: 'Misleading Information',
+          description: 'Condition does not match the photos.',
+        };
+        assert.equal((await request('/reports', null, reportBody)).status, 401);
+        assert.equal((await request('/reports', seller, reportBody)).status, 403);
+        assert.equal((await request('/reports', admin, reportBody)).status, 403);
+        assert.equal(
+          (await request('/reports', reporter, { ...reportBody, reason: 'Invalid' }))
+            .status,
+          400,
+        );
+        assert.equal(
+          (
+            await request('/reports', reporter, {
+              ...reportBody,
+              description: 'x'.repeat(2001),
+            })
+          ).status,
+          400,
+        );
+        assert.equal((await request('/admin/reports', reporter)).status, 403);
+
+        const attempts = await Promise.all([
+          request('/reports', reporter, reportBody),
+          request('/reports', reporter, reportBody),
+        ]);
+        assert.equal(attempts.filter((result) => result.status === 201).length, 1);
+        assert.equal(attempts.filter((result) => result.status === 409).length, 1);
+        const reportId = attempts.find((result) => result.status === 201).body.report.id;
+        assert.equal((await request('/reports', otherReporter, reportBody)).status, 201);
+        const route = '/admin/reports/' + reportId;
+        const initial = (await request(route, admin)).body.report;
+        assert.equal(initial.listing.status, 'ACTIVE');
+        assert.equal((await request(route, reporter)).status, 403);
+
+        async function moderate(
+          action,
+          adminReason = 'Please correct the condition description.',
+        ) {
+          const current = (await request(route, admin)).body.report;
+          return request(route + '/actions', admin, {
+            action,
+            adminReason,
+            version: current.version,
+            listingUpdatedAt: current.listing.updatedAt,
+          });
+        }
+
+        const pendingOffer = await request('/offers', reporter, {
+          listingId: listing.id,
+          amount: 40,
+        });
+        const investigation = await moderate('investigate', '');
+        assert.equal(investigation.status, 200);
+        assert.equal(investigation.body.report.listing.status, 'UNDER_REVIEW');
+        assert.equal(
+          (await request('/offers/' + pendingOffer.body.offer.id, reporter)).body.offer
+            .closeReason,
+          'LISTING_MODERATED',
+        );
+        assert.equal((await request('/listings/' + listing.id, reporter)).status, 404);
+        assert.equal(
+          (await request('/purchases/quote?listingId=' + listing.id, reporter)).status,
+          409,
+        );
+        assert.equal(
+          (await request('/admin/reports?group=reviewing', admin)).body.counts.reviewing,
+          2,
+        );
+        assert.equal(
+          (
+            await request(route + '/actions', admin, {
+              action: 'remove',
+              adminReason: 'Stale',
+              version: initial.version,
+              listingUpdatedAt: initial.listing.updatedAt,
+            })
+          ).status,
+          409,
+        );
+        assert.equal((await moderate('revision', '')).status, 400);
+
+        const revision = await moderate('revision');
+        assert.equal(revision.body.report.listing.status, 'NEEDS_REVISION');
+        const owned = (await request('/listings/' + listing.id, seller)).body.listing;
+        assert.equal(owned.moderationReason, 'Please correct the condition description.');
+        const resubmitted = await request(
+          '/listings/' + listing.id,
+          seller,
+          {
+            title: owned.title,
+            description: 'Updated details with an accurate description of wear.',
+            price: owned.price,
+            category: owned.category,
+            condition: 'Fair',
+            state: owned.state,
+            city: owned.city,
+            images: [],
+            updatedAt: owned.updatedAt,
+          },
+          'PATCH',
+        );
+        assert.equal(resubmitted.status, 200);
+        assert.equal(resubmitted.body.listing.status, 'UNDER_REVIEW');
+        const approved = await moderate('approve', 'The revised listing is accurate.');
+        assert.equal(approved.body.report.listing.status, 'ACTIVE');
+        assert.equal(approved.body.report.status, 'ACTION_TAKEN');
+        assert.ok(approved.body.report.reviewedAt);
+        assert.equal(
+          (await request('/admin/reports?group=resolved', admin)).body.counts.resolved,
+          2,
+        );
+        assert.equal((await moderate('remove')).status, 409);
+
+        const newReport = await request('/reports', reporter, reportBody);
+        assert.equal(newReport.status, 201);
+        const newRoute = '/admin/reports/' + newReport.body.report.id;
+        await prisma.listingImage.create({
+          data: {
+            listingId: listing.id,
+            url: '/uploads/preserved-test.webp',
+            position: 0,
+          },
+        });
+        const fresh = (await request(newRoute, admin)).body.report;
+        const removed = await request(newRoute + '/actions', admin, {
+          action: 'remove',
+          adminReason: 'Prohibited content confirmed.',
+          version: fresh.version,
+          listingUpdatedAt: fresh.listing.updatedAt,
+        });
+        assert.equal(removed.body.report.listing.status, 'REMOVED');
+        assert.equal(removed.body.report.listing.images.length, 1);
+        assert.equal(await prisma.listing.count({ where: { id: listing.id } }), 1);
+        const restored = await request(newRoute + '/actions', admin, {
+          action: 'restore',
+          adminReason: 'Removal was made in error.',
+          version: removed.body.report.version,
+          listingUpdatedAt: removed.body.report.listing.updatedAt,
+        });
+        assert.equal(restored.body.report.listing.status, 'ACTIVE');
+        assert.equal(restored.body.report.listing.images.length, 1);
+        const reputation = (await request('/users/' + seller.id)).body.user;
+        assert.equal(reputation.averageRating, 0);
+        assert.equal(reputation.totalReviews, 0);
+        assert.equal(reputation.completedTransactions, 0);
+      },
+    );
+
+    await suite.test(
+      'moderation cannot restore a sold listing to active or erase reputation',
+      async () => {
+        const seller = await createUser();
+        const buyer = await createUser();
+        const admin = await createUser();
+        await prisma.user.update({ where: { id: admin.id }, data: { role: 'ADMIN' } });
+        const listing = await createListing(seller, 0);
+        const created = await request('/reports', buyer, {
+          listingId: listing.id,
+          reason: 'Other',
+        });
+        const paid = await request('/purchases', buyer, await checkout(buyer, listing));
+        await request(
+          '/transactions/' + paid.body.purchase.transaction.id + '/reviews',
+          buyer,
+          { rating: 5 },
+        );
+        const route = '/admin/reports/' + created.body.report.id;
+        let report = (await request(route, admin)).body.report;
+        for (const action of ['investigate', 'remove', 'restore']) {
+          const result = await request(route + '/actions', admin, {
+            action,
+            adminReason: 'Reviewed evidence.',
+            version: report.version,
+            listingUpdatedAt: report.listing.updatedAt,
+          });
+          assert.equal(result.status, 200, JSON.stringify(result.body));
+          report = result.body.report;
+        }
+        assert.equal(report.listing.status, 'SOLD');
+        const reputation = (await request('/users/' + seller.id)).body.user;
+        assert.equal(reputation.averageRating, 5);
+        assert.equal(reputation.totalReviews, 1);
+        assert.equal(reputation.completedTransactions, 1);
+      },
+    );
+    await suite.test(
+      'dismissal restores valid listings and admin accounts cannot trade',
+      async () => {
+        const seller = await createUser();
+        const reporter = await createUser();
+        const admin = await createUser();
+        await prisma.user.update({ where: { id: admin.id }, data: { role: 'ADMIN' } });
+        const listing = await createListing(seller);
+        const created = await request('/reports', reporter, {
+          listingId: listing.id,
+          reason: 'Duplicate Listing',
+        });
+        const route = '/admin/reports/' + created.body.report.id;
+        let report = (await request(route, admin)).body.report;
+        for (const action of ['investigate', 'dismiss']) {
+          const result = await request(route + '/actions', admin, {
+            action,
+            adminReason: 'This is a distinct, valid item.',
+            version: report.version,
+            listingUpdatedAt: report.listing.updatedAt,
+          });
+          assert.equal(result.status, 200);
+          report = result.body.report;
+        }
+        assert.equal(report.status, 'REJECTED');
+        assert.equal(report.listing.status, 'ACTIVE');
+        assert.equal((await request('/listings/' + listing.id)).status, 200);
+        assert.equal((await request('/listings', admin, {})).status, 403);
+        assert.equal((await request('/offers', admin, {})).status, 403);
+        assert.equal((await request('/purchases', admin, {})).status, 403);
+        assert.equal((await request('/wallet/top-ups', admin, {})).status, 403);
+        assert.equal(
+          (await request('/transactions/missing/reviews', admin, { rating: 5 })).status,
+          403,
+        );
+      },
+    );
   } finally {
     await new Promise((resolve) => server.close(resolve));
     await prisma.$disconnect();

@@ -29,3 +29,12 @@ export function requireAdmin(req, res, next) {
     return res.status(403).json({ error: 'Administrator access required.' });
   next();
 }
+
+export function requireMember(req, res, next) {
+  if (req.user.role !== 'USER') {
+    return res
+      .status(403)
+      .json({ error: 'The administrator account is for reports and moderation only.' });
+  }
+  next();
+}
