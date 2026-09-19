@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, NavLink } from 'react-router-dom';
-import { ArrowUpRight, Menu, X, Heart, UserRound } from 'lucide-react';
+import { ArrowUpRight, Bell, Menu, X, Heart, UserRound } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { api } from '../lib/api';
 const links = [
   ['/', 'Marketplace'],
+  ['/dashboard', 'Dashboard'],
   ['/sell', 'Sell'],
   ['/my-offers', 'My Offers'],
   ['/my-listings', 'My Listings'],
@@ -24,8 +26,15 @@ export function Logo() {
 }
 export default function Navbar() {
   const [open, setOpen] = useState(false);
+  const [unread, setUnread] = useState(0);
   const { user } = useAuth();
   const isAdmin = user?.role === 'ADMIN';
+  useEffect(() => {
+    if (!user || isAdmin) { setUnread(0); return; }
+    let active = true;
+    api('/dashboard').then((data) => active && setUnread(data.unreadNotifications)).catch(() => {});
+    return () => { active = false; };
+  }, [user?.id, isAdmin]);
   const visibleLinks = isAdmin
     ? [
         ['/', 'Marketplace'],
@@ -54,6 +63,7 @@ export default function Navbar() {
           {visibleLinks.map(([to, label]) => (
             <NavLink key={to} end={to === '/'} to={to} onClick={() => setOpen(false)}>
               {label === 'Favourites' && <Heart size={15} />}{' '}
+              {label === 'Dashboard' && <span className="nav-notification"><Bell size={15} />{unread > 0 && <i aria-label={unread + ' unread notifications'}>{unread > 9 ? '9+' : unread}</i>}</span>}{' '}
               {label === 'Profile' && <UserRound size={15} />} {label}
             </NavLink>
           ))}

@@ -12,6 +12,7 @@ export function createSession(res, user) {
     ...cookieOptions,
     maxAge: (claims.exp - claims.iat) * 1000,
   });
+  return token;
 }
 export function clearSession(res) {
   res.clearCookie('relive_session', cookieOptions);

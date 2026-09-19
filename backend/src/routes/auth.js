@@ -39,8 +39,8 @@ router.post('/register', limit, async (req, res) => {
   const user = await prisma.user.create({
     data: { ...values, passwordHash: await hashPassword(password), role: 'USER' },
   });
-  createSession(res, user);
-  res.status(201).json({ user: safe(user) });
+  const token = createSession(res, user);
+  res.status(201).json({ user: safe(user), token });
 });
 router.post('/login', limit, async (req, res) => {
   const email = emailValue(req.body?.email);
@@ -49,8 +49,8 @@ router.post('/login', limit, async (req, res) => {
   const hash = user?.passwordHash || (await hashPassword('not-a-real-account-password'));
   if (!(await checkPassword(password, hash)) || !user)
     fail('Email or password is incorrect.', 401);
-  createSession(res, user);
-  res.json({ user: safe(user) });
+  const token = createSession(res, user);
+  res.json({ user: safe(user), token });
 });
 router.get('/me', requireAuth, (req, res) => res.json({ user: safe(req.user) }));
 router.post('/logout', requireAuth, async (req, res) => {

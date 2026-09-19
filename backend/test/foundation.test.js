@@ -8,19 +8,20 @@ test('API foundation exposes health, CORS, and JSON 404s', async () => {
   await new Promise((resolve) => server.once('listening', resolve));
   try {
     const base = 'http://127.0.0.1:' + server.address().port;
-    const health = await fetch(base + '/api/health', {
-      headers: { Origin: 'http://localhost:5173' },
-    });
-    assert.equal(health.status, 200);
-    assert.equal(
-      health.headers.get('access-control-allow-origin'),
+    for (const origin of [
       'http://localhost:5173',
-    );
-    assert.deepEqual(await health.json(), {
-      status: 'ok',
-      service: 'relive-api',
-      stage: 'foundation',
-    });
+      'http://localhost:5174',
+      'http://127.0.0.1:5173',
+      'http://127.0.0.1:5174',
+    ]) {
+      const health = await fetch(base + '/api/health', { headers: { Origin: origin } });
+      assert.equal(health.status, 200);
+      assert.equal(health.headers.get('access-control-allow-origin'), origin);
+      assert.equal(health.headers.get('access-control-allow-credentials'), 'true');
+      assert.deepEqual(await health.json(), {
+        status: 'ok', service: 'relive-api', stage: 'foundation',
+      });
+    }
     const missing = await fetch(base + '/api/not-a-real-route');
     assert.equal(missing.status, 404);
     assert.deepEqual(await missing.json(), { error: 'Route not found.' });

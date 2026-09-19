@@ -4,6 +4,7 @@ import { requireAuth, requireAdmin } from '../middleware/requireAuth.js';
 import { fail } from '../lib/validation.js';
 import { listingInclude, serializeListing } from '../lib/listings.js';
 import { closeOpenOffers } from '../lib/offers.js';
+import { notify } from '../lib/notifications.js';
 
 const router = Router();
 const openStatuses = ['PENDING', 'REVIEWING'];
@@ -149,6 +150,10 @@ router.post('/:id/actions', async (req, res) => {
 
     if (['UNDER_REVIEW', 'NEEDS_REVISION', 'REMOVED'].includes(listingStatus)) {
       await closeOpenOffers(database, listing.id, req.user.id, 'LISTING_MODERATED');
+    }
+
+    if (action === 'revision') {
+      await notify(database, listing.sellerId, 'LISTING_NEEDS_REVISION', `Your listing “${listing.title}” requires revision.`, '/listing/' + listing.id + '/edit');
     }
 
     // One listing decision resolves its open reports together, avoiding conflicting queues.

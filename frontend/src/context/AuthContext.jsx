@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react';
-import { api } from '../lib/api';
+import { api, setSessionToken } from '../lib/api';
 const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -26,6 +26,7 @@ export function AuthProvider({ children }) {
   }, []);
   async function authenticate(mode, values) {
     const data = await api('/auth/' + mode, { method: 'POST', body: values });
+    setSessionToken(data.token);
     setUser(data.user);
     setError('');
   }
@@ -36,6 +37,7 @@ export function AuthProvider({ children }) {
       if (err.status !== 401) throw err;
     }
     setUser(null);
+    setSessionToken(null);
   }
   return (
     <AuthContext.Provider

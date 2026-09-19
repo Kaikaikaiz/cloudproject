@@ -24,6 +24,8 @@ import PaymentSuccess from './pages/PaymentSuccess';
 import Transactions from './pages/Transactions';
 import TransactionDetails from './pages/TransactionDetails';
 import PublicProfile from './pages/PublicProfile';
+import Dashboard from './pages/Dashboard';
+import ToastRegion from './components/ToastRegion';
 export default function App() {
   const { pathname } = useLocation();
   useEffect(() => {
@@ -36,6 +38,7 @@ export default function App() {
         Skip to content
       </a>
       <Navbar />
+      <ToastRegion />
       <main id="main-content" className="main-container">
         <Routes>
           <Route path="/" element={<Marketplace />} />
@@ -43,6 +46,7 @@ export default function App() {
           <Route path="/listing/:id" element={<ListingDetails />} />
           <Route path="/users/:id" element={<PublicProfile />} />
           <Route element={<ProtectedRoute />}>
+            <Route path="/dashboard" element={<Dashboard />} />
             <Route
               path="/my-purchases"
               element={<Transactions direction="purchases" />}

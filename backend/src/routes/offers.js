@@ -11,6 +11,7 @@ import {
   parseOfferAmount,
   serializeOffer,
 } from '../lib/offers.js';
+import { notify } from '../lib/notifications.js';
 
 const router = Router();
 
@@ -78,7 +79,7 @@ router.post('/', async (req, res) => {
       );
     }
 
-    return transaction.offer.create({
+    const created = await transaction.offer.create({
       data: {
         listingId,
         buyerId: req.user.id,
@@ -96,6 +97,8 @@ router.post('/', async (req, res) => {
       },
       include: offerInclude,
     });
+    await notify(transaction, listing.sellerId, 'NEW_OFFER', `New offer on ${listing.title}.`, '/offers/' + created.id);
+    return created;
   });
 
   res.status(201).json({ offer: serializeOffer(offer, req.user.id) });
@@ -194,6 +197,12 @@ router.post('/:id/actions', async (req, res) => {
         action: historyAction,
       },
     });
+
+    if (action !== 'cancel') {
+      const recipientId = isBuyer ? offer.sellerId : offer.buyerId;
+      const labels = { counter: 'Counter offer', accept: 'Offer accepted', reject: 'Offer rejected' };
+      await notify(transaction, recipientId, action === 'counter' ? 'COUNTER_OFFER' : 'OFFER_' + action.toUpperCase(), `${labels[action]} for ${offer.listing.title}.`, '/offers/' + offer.id);
+    }
 
     if (action === 'accept') {
       // Reserve and close competing negotiations in the same database transaction.

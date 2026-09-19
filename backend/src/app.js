@@ -12,14 +12,23 @@ import transactionRoutes from './routes/transactions.js';
 import userRoutes from './routes/users.js';
 import reportRoutes from './routes/reports.js';
 import moderationRoutes from './routes/moderation.js';
+import dashboardRoutes from './routes/dashboard.js';
 export const app = express();
 app.disable('x-powered-by');
-app.use(cors({ origin: config.frontendUrl, credentials: true }));
+app.use(
+  cors({
+    credentials: true,
+    origin(origin, callback) {
+      // Requests without Origin include same-origin calls and command-line health checks.
+      callback(null, !origin || config.allowedOrigins.includes(origin));
+    },
+  }),
+);
 app.use((req, res, next) => {
   if (
     !['GET', 'HEAD', 'OPTIONS'].includes(req.method) &&
     req.headers.origin &&
-    req.headers.origin !== config.frontendUrl
+    !config.allowedOrigins.includes(req.headers.origin)
   )
     return res.status(403).json({ error: 'Request origin is not allowed.' });
   next();
@@ -44,6 +53,7 @@ app.use('/api/transactions', transactionRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/admin/reports', moderationRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 app.use((_req, res) => res.status(404).json({ error: 'Route not found.' }));
 app.use((error, _req, res, _next) => {
   if (error.code === 'P2002')
