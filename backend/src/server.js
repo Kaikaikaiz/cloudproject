@@ -7,9 +7,14 @@ import { signToken } from './lib/jwt.js';
 signToken('startup-config-check');
 await mkdir(config.uploadsDir, { recursive: true });
 await prisma.$connect();
-const server = app.listen(config.port, '127.0.0.1', () => console.log(`reLIVE API ready at http://localhost:${config.port}`));
+const server = app.listen(config.port, '127.0.0.1', () =>
+  console.log(`reLIVE API ready at http://localhost:${config.port}`),
+);
 async function shutdown() {
- server.close(async () => { await prisma.$disconnect(); process.exit(0); });
+  server.close(async () => {
+    await prisma.$disconnect();
+    process.exit(0);
+  });
 }
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);

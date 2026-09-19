@@ -14,7 +14,9 @@
     "db:studio": "prisma studio",
     "db:seed": "node prisma/seed.js",
     "setup:auth": "node scripts/setup-local-auth.js",
-    "test": "node --test"
+    "test": "node --test",
+    "format": "prettier --write src scripts test prisma/seed.js package.json",
+    "format:check": "prettier --check src scripts test prisma/seed.js package.json"
   },
   "dependencies": {
     "@prisma/client": "6.19.0",
@@ -24,6 +26,7 @@
     "jsonwebtoken": "^9.0.2"
   },
   "devDependencies": {
+    "prettier": "3.9.8",
     "prisma": "6.19.0"
   }
 }

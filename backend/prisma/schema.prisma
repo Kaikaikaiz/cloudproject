@@ -20,4 +20,45 @@ model User {
   tokenVersion Int      @default(0)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  listings     Listing[]
+  favourites   Favourite[]
+}
+
+model Listing {
+  id          String   @id @default(cuid())
+  sellerId    String
+  seller      User     @relation(fields: [sellerId], references: [id])
+  title       String
+  description String
+  // Integer sen; API accepts and returns RM with two decimal places.
+  price       Int
+  category    String
+  condition   String
+  state       String
+  city        String
+  status      String   @default("ACTIVE")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  images      ListingImage[]
+  favourites  Favourite[]
+  @@index([status, createdAt])
+  @@index([sellerId, createdAt])
+}
+
+model ListingImage {
+  id        String  @id @default(cuid())
+  listingId String
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  url       String
+  position  Int
+  @@index([listingId, position])
+}
+
+model Favourite {
+  userId    String
+  listingId String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  @@id([userId, listingId])
 }
