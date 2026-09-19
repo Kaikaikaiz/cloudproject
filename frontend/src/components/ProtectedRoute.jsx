@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import LoadingState from './LoadingState';
 import Button from './Button';
 import EmptyState from './EmptyState';
+import LoginRequired from './LoginRequired';
 export default function ProtectedRoute({ admin = false }) {
   const { user, loading, error, refresh } = useAuth();
   const location = useLocation();
@@ -14,7 +15,7 @@ export default function ProtectedRoute({ admin = false }) {
         <Button onClick={refresh}>Try again</Button>
       </div>
     );
-  if (!user) return <Navigate to="/login" state={{ from: location.pathname }} replace />;
+  if (!user) return <LoginRequired />;
   if (!admin && user.role === 'ADMIN' && location.pathname !== '/profile') {
     return <Navigate to="/admin" replace />;
   }

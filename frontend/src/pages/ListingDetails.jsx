@@ -13,6 +13,7 @@ import SellerSummary from '../components/SellerSummary';
 import MakeOfferModal from '../components/MakeOfferModal';
 import ReportListing from '../components/ReportListing';
 import ModerationNotice from '../components/ModerationNotice';
+import { LoginRequiredModal } from '../components/LoginRequired';
 export default function ListingDetails() {
   const { id } = useParams();
   const { user } = useAuth();
@@ -27,6 +28,7 @@ export default function ListingDetails() {
   const [dialog, setDialog] = useState('');
   const [retry, setRetry] = useState(0);
   const [favouriteReady, setFavouriteReady] = useState(false);
+  const [loginPrompt, setLoginPrompt] = useState(false);
   useEffect(() => {
     let active = true;
     setLoading(true);
@@ -69,7 +71,7 @@ export default function ListingDetails() {
   function openBuyerActionDialog(action) {
     if (isOwner || listing.status !== 'ACTIVE') return;
     if (!user) {
-      navigate('/login', { state: { from: location.pathname } });
+      setLoginPrompt(true);
       return;
     }
     if (action === 'Buy Now') {
@@ -81,7 +83,7 @@ export default function ListingDetails() {
   async function toggleFavourite() {
     if (isOwner || listing.status !== 'ACTIVE') return;
     if (!user) {
-      navigate('/login', { state: { from: location.pathname } });
+      setLoginPrompt(true);
       return;
     }
     setBusy(true);
@@ -201,6 +203,11 @@ export default function ListingDetails() {
         listing={listing}
         open={dialog === 'Make Offer'}
         onClose={() => setDialog('')}
+      />
+      <LoginRequiredModal
+        open={loginPrompt}
+        onClose={() => setLoginPrompt(false)}
+        destination={location.pathname + location.search + location.hash}
       />
     </section>
   );

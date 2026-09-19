@@ -3,6 +3,7 @@ import { Link, NavLink } from 'react-router-dom';
 import { ArrowUpRight, Bell, Menu, X, Heart, UserRound } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../lib/api';
+import ThemeToggle from './ThemeToggle';
 const links = [
   ['/', 'Marketplace'],
   ['/dashboard', 'Dashboard'],
@@ -68,6 +69,7 @@ export default function Navbar() {
             </NavLink>
           ))}
         </nav>
+        <ThemeToggle />
         {!isAdmin && (
           <Link className="nav-sell" to="/sell">
             Sell an item <ArrowUpRight size={17} />
