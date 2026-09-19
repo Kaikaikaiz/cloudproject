@@ -25,7 +25,12 @@ router.use((_req, res, next) => {
 
 router.get('/quote', async (req, res) => {
   const checkout = await prisma.$transaction((transaction) =>
-    loadCheckout(transaction, req.user.id, req.query.listingId, req.query.offerId || null),
+    loadCheckout(
+      transaction,
+      req.user.id,
+      req.query.listingId,
+      req.query.offerId || null,
+    ),
   );
 
   res.json({ checkout: serializeCheckout(checkout) });
@@ -57,7 +62,10 @@ router.post('/', async (req, res) => {
     const checkout = await loadCheckout(transaction, req.user.id, listingId, offerId);
     const { listing, offer, amount } = checkout;
 
-    if (amount !== expectedAmount || listing.updatedAt.toISOString() !== listingUpdatedAt) {
+    if (
+      amount !== expectedAmount ||
+      listing.updatedAt.toISOString() !== listingUpdatedAt
+    ) {
       fail('The listing or price has changed. Refresh checkout before confirming.', 409);
     }
 
@@ -190,4 +198,3 @@ router.get('/:id', async (req, res) => {
 router.use(paymentErrorHandler);
 
 export default router;
-

@@ -1,7 +1,7 @@
 # reLIVE
 **Give it another life.**
 
-A localhost second-hand marketplace with a clean pastel interface, account authentication, profiles, real listings, search and filters, seller management, favourites, and price negotiations.
+A localhost second-hand marketplace with a clean pastel interface, account authentication, profiles, real listings, search and filters, seller management, favourites, price negotiations, and a simulated wallet checkout.
 
 ## Requirements
 - Node.js 22.12+ (verified with 22.19) and npm
@@ -61,7 +61,8 @@ frontend/
                     StatusBadge, EmptyState, LoadingState, ItemArt
     pages/          Marketplace, ListingDetails, Placeholder, Auth,
                     Profile, ForgotPassword, Admin, ListingForm,
-                    MyListings, Favourites, Offers, OfferDetails
+                    MyListings, Favourites, Offers, OfferDetails, Wallet,
+                    TopUp, TopUpConfirmation, Checkout, PaymentSuccess
     context/        AuthProvider: restores the cookie session on reload
     lib/            API client with credentials and error handling
     App.jsx         React Router routes and shared layout
@@ -69,14 +70,16 @@ frontend/
   .env.example
 backend/
   prisma/
-    schema.prisma   Users, listings, images, favourites, offers and history
+    schema.prisma   Users, listings, images, favourites, offers, history,
+                    wallet transactions and purchases
     migrations/     Additive migrations; existing accounts are preserved
     seed.js         One fixed ADMIN account
   scripts/          Local auth configuration and SQLite initialization
   src/
     lib/            Prisma, scrypt passwords, JWT, cookies, validation
     middleware/     Authentication and administrator guards
-    routes/         Authentication, profiles, listings, favourites and offers
+    routes/         Authentication, profiles, listings, favourites, offers,
+                    wallet and purchases
     app.js          Express, CORS, local static uploads, health endpoint
     server.js       Database connection and server lifecycle
   uploads/          Local image storage (contents ignored by Git)
@@ -97,6 +100,11 @@ backend/
 | Offer Details | `/offers/:id` |
 | Favourites | `/favourites` |
 | Wallet | `/wallet` |
+| Mock Top Up | `/wallet/top-up` |
+| Confirm Top Up | `/wallet/top-up/:id` |
+| Top-up Success | `/wallet/top-up/:id/success` |
+| Confirm Purchase | `/checkout/:listingId` (accepted offer adds `?offer=:offerId`) |
+| Purchase Receipt / Success | `/purchases/:id`, `/purchases/:id/success` |
 | Profile | `/profile` |
 | Login / Register | `/login`, `/register` |
 | Forgot password (mock) | `/forgot-password` |
@@ -113,7 +121,7 @@ backend/
 - `VITE_API_URL` configures the frontend API base URL.
 - The hero retains its local SVG illustrations. Listing photos are real local uploads. Google Fonts is optional; system sans-serif fallbacks work offline.
 - Make Offer starts a real negotiation. Buyers and sellers can take turns accepting, rejecting or countering. Buyers can cancel an open negotiation. Favourites are persisted, and self-favouriting/self-bargaining are blocked by the backend.
-- Buy Now, Wallet and admin management tools remain placeholders. There is no chat system, payment processing, external image service or AWS integration.
+- Buy Now and accepted offers use the simulated wallet. Admin management tools remain placeholders. There is no chat system, real payment processing, seller withdrawal, external image service or AWS integration.
 
 ## Listing management
 Create a listing at `/sell`; it becomes ACTIVE immediately. Photos are optional, with a maximum of five PNG/JPEG/WebP files, up to 2 MB each. The first photo is the cover. The server validates count, file type and signature, generates filenames, and stores them in `backend/uploads`. Editing can retain/remove existing images and add replacements; removed listing image files are cleaned up.
@@ -148,7 +156,44 @@ Every offer action appends an ordered history entry with actor, amount, action a
 
 The server sends `allowedActions` for each offer. Responses include a `version`; clients must send it back when acting. Stale or competing requests return 409 instead of overwriting a newer response. Use the Refresh button to load the latest negotiation state.
 
-COMPLETED is reserved for a future transaction-completion workflow. Acceptance saves the agreement and reservation; it does not take payment or mark a transaction completed.
+Acceptance saves the agreement and reservation without taking payment. The buyer can then pay the agreed amount from Offer Details. Successful wallet payment marks the offer COMPLETED and appends a completion event to its timeline.
+
+## Wallet and mock payments
+
+All balances and payments are simulated. FPX Online Banking and Touch 'n Go eWallet are local mock choices; they never contact a bank, e-wallet or payment API and require no real credentials. There is no withdrawal feature.
+
+Open `/wallet` to see your current balance, total seller earnings and transaction history. Choose Top Up, enter RM 0.01–999,999.99 and select FPX or TNG. Creating a top-up records it as PENDING without crediting the wallet. The confirmation page can confirm it as SUCCESS or cancel it as CANCELLED. Refreshing or confirming the same payment again cannot add funds twice. Pending payments can be resumed from wallet history.
+
+Buy Now checks out an ACTIVE listing at its current asking price. An accepted offer checks out its RESERVED listing at the saved agreed price, and only its buyer can pay. Checkout displays the server-confirmed price and wallet balance. If funds are insufficient, the top-up flow provides a link back to checkout.
+
+A successful purchase runs in one database transaction:
+
+1. Claim the listing as SOLD and verify sufficient buyer funds.
+2. Deduct the buyer's balance and credit the seller's balance.
+3. Create a Purchase receipt and matching PURCHASE/SALE wallet entries.
+4. Complete the accepted offer, if applicable, and close any remaining open offers.
+5. Increment completed transactions for both participants.
+
+Failure rolls back every step. Asking prices are never changed by bargaining or payment. Balances and amounts are stored as integer sen and returned as RM. Wallet transaction amounts are positive; PURCHASE is a debit, while TOP_UP and SALE are credits. Seller earnings sum successful sales independently of the current balance. The maximum wallet balance is RM 21,474,836.47.
+
+The backend derives participants and prices, rejects self-purchases, checks listing status and the confirmed listing timestamp, and restricts receipts to their participants. Unique purchase-per-listing constraints and conditional balance updates prevent duplicate sales and overdrafts. Payment request keys make retries idempotent; reusing a key with different payment details returns 409. A concurrent conflict may return 409; retry the same request or check wallet history for the persisted receipt.
+
+### Payment API
+
+All endpoints below require authentication. Amounts in request bodies are RM. Generate a UUID for each new `requestKey` and reuse it when retrying that same request.
+
+| Method | Endpoint | Body / purpose |
+| --- | --- | --- |
+| GET | `/api/wallet` | Own balance, seller earnings and transaction history |
+| POST | `/api/wallet/top-ups` | `amount`, `method` (`FPX` or `TNG`), `requestKey`; creates PENDING mock payment |
+| GET | `/api/wallet/top-ups/:id` | Own top-up status |
+| POST | `/api/wallet/top-ups/:id/confirm` | Confirm stored mock payment; no client-supplied amount used |
+| POST | `/api/wallet/top-ups/:id/cancel` | Cancel a pending mock payment |
+| GET | `/api/purchases/quote?listingId=...&offerId=...` | Current checkout details; `offerId` optional |
+| POST | `/api/purchases` | `listingId`, optional `offerId`, `expectedAmount`, `listingUpdatedAt`, `requestKey` |
+| GET | `/api/purchases/:id` | Persisted receipt for buyer or seller |
+
+To try it locally, list an item with one account, then sign in with a second account and top up its wallet. Use Buy Now or pay an accepted offer. Wallet history shows the buyer's purchase and the seller's earnings with the same reference. Success pages load the saved payment record rather than trusting a URL alone.
 
 ## Offer API
 All offer endpoints require authentication. Only the buyer and seller can read a negotiation or its history.
@@ -210,7 +255,7 @@ The registration endpoint always creates USER accounts, rejects submitted roles,
 
 Browser requests include credentials. Mutating requests from foreign origins are rejected. Public authentication endpoints are limited to 30 attempts per IP per 15 minutes in memory. API responses never expose password hashes or JWTs. Bearer tokens are also accepted for API clients.
 
-`npm test` uses isolated temporary SQLite databases to check authentication, listing CRUD, image validation, filters, favourites, offer authorization, turn-taking, timelines, cancellation/rejection, stale requests and concurrent acceptance. It does not alter the development database.
+`npm test` uses isolated temporary SQLite databases to check authentication, listing CRUD, image validation, filters, favourites, offer authorization, turn-taking, timelines, cancellation/rejection, stale requests, concurrent acceptance, mock top-ups, payment ownership, insufficient funds, receipt access, duplicate payments, competing buyers and wallet limits. It does not alter the development database.
 
 ## Code formatting
 Both frontend and backend use the shared Prettier configuration: two spaces, readable line wrapping and consistent quotes. Run `npm run format` to format that project's source, or `npm run format:check` to verify it.

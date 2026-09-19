@@ -20,7 +20,8 @@ export default function WalletHistory({ transactions }) {
       {transactions.map((transaction) => {
         const isDebit = transaction.type === 'PURCHASE';
         const isSuccessful = transaction.status === 'SUCCESS';
-        const title = transaction.type === 'TOP_UP' ? 'Wallet top-up' : statusLabel(transaction.type);
+        const title =
+          transaction.type === 'TOP_UP' ? 'Wallet top-up' : statusLabel(transaction.type);
         let receiptPath = transaction.purchaseId
           ? '/purchases/' + transaction.purchaseId
           : '/wallet/top-up/' + transaction.id;
@@ -42,7 +43,9 @@ export default function WalletHistory({ transactions }) {
               </span>
               <small className="payment-reference">{transaction.reference}</small>
               <Link className="auth-link" to={receiptPath}>
-                {transaction.status === 'PENDING' ? 'Continue mock payment' : 'View details'}
+                {transaction.status === 'PENDING'
+                  ? 'Continue mock payment'
+                  : 'View details'}
               </Link>
             </div>
 
@@ -61,4 +64,3 @@ export default function WalletHistory({ transactions }) {
     </div>
   );
 }
-

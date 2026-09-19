@@ -47,17 +47,25 @@ export default function Wallet() {
           <h1>Wallet</h1>
           <p>A little balance for your next favourite find.</p>
         </div>
-        <Button variant="secondary" disabled={isLoading} onClick={() => setRefreshCount((count) => count + 1)}>
+        <Button
+          variant="secondary"
+          disabled={isLoading}
+          onClick={() => setRefreshCount((count) => count + 1)}
+        >
           Refresh
         </Button>
       </div>
 
-      <p className="payment-mock-notice">Demo wallet · All payments are simulated. No real money is moved.</p>
+      <p className="payment-mock-notice">
+        Demo wallet · All payments are simulated. No real money is moved.
+      </p>
 
       {isLoading ? (
         <LoadingState label="Opening your wallet…" />
       ) : error ? (
-        <p className="form-message error-message" role="alert">{error}</p>
+        <p className="form-message error-message" role="alert">
+          {error}
+        </p>
       ) : (
         <>
           <div className="wallet-summary">
@@ -72,7 +80,9 @@ export default function Wallet() {
               <TrendingUp size={25} />
               <span>Seller earnings</span>
               <strong>{rm(wallet.sellerEarnings)}</strong>
-              <p>Total earnings from completed sales. Earnings are added to your wallet.</p>
+              <p>
+                Total earnings from completed sales. Earnings are added to your wallet.
+              </p>
             </div>
           </div>
 
@@ -85,4 +95,3 @@ export default function Wallet() {
     </section>
   );
 }
-

@@ -73,7 +73,11 @@ router.post('/top-ups', async (req, res) => {
     });
 
     if (existing) {
-      if (existing.type !== 'TOP_UP' || existing.amount !== amount || existing.method !== method) {
+      if (
+        existing.type !== 'TOP_UP' ||
+        existing.amount !== amount ||
+        existing.method !== method
+      ) {
         fail('This request was already used for a different top-up.', 409);
       }
 
@@ -174,4 +178,3 @@ router.post('/top-ups/:id/cancel', async (req, res) => {
 router.use(paymentErrorHandler);
 
 export default router;
-

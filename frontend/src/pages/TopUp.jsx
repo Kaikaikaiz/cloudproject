@@ -58,7 +58,8 @@ export default function TopUp() {
       <form className="surface payment-panel" onSubmit={handleSubmit}>
         <StatusBadge tone="lavender">Mock payment only</StatusBadge>
         <p className="payment-mock-notice">
-          This is a local simulation. No bank account, eWallet login or real payment is needed.
+          This is a local simulation. No bank account, eWallet login or real payment is
+          needed.
         </p>
 
         <Input
@@ -76,7 +77,12 @@ export default function TopUp() {
         <fieldset className="payment-methods" disabled={isSubmitting}>
           <legend>Choose a mock payment method</legend>
           {['FPX', 'TNG'].map((paymentMethod) => (
-            <label key={paymentMethod} className={method === paymentMethod ? 'payment-method selected' : 'payment-method'}>
+            <label
+              key={paymentMethod}
+              className={
+                method === paymentMethod ? 'payment-method selected' : 'payment-method'
+              }
+            >
               <input
                 type="radio"
                 name="method"
@@ -84,21 +90,29 @@ export default function TopUp() {
                 checked={method === paymentMethod}
                 onChange={handleMethodChange}
               />
-              <span>{paymentMethodLabels[paymentMethod]}<small>Simulated payment</small></span>
+              <span>
+                {paymentMethodLabels[paymentMethod]}
+                <small>Simulated payment</small>
+              </span>
             </label>
           ))}
         </fieldset>
 
-        {error && <p className="form-message error-message" role="alert">{error}</p>}
+        {error && (
+          <p className="form-message error-message" role="alert">
+            {error}
+          </p>
+        )}
 
         <div className="profile-actions">
           <Button type="submit" disabled={isSubmitting}>
             {isSubmitting ? 'Preparing…' : 'Review mock payment'}
           </Button>
-          <Button to={returnTo || '/wallet'} variant="ghost">Back</Button>
+          <Button to={returnTo || '/wallet'} variant="ghost">
+            Back
+          </Button>
         </div>
       </form>
     </section>
   );
 }
-

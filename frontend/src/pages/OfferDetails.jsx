@@ -111,8 +111,8 @@ export default function OfferDetails() {
           {getOfferMessage(offer, user.id)}
         </p>
 
-        {offer.status === 'ACCEPTED' && (
-          isBuyer ? (
+        {offer.status === 'ACCEPTED' &&
+          (isBuyer ? (
             <div className="profile-actions">
               <Button to={'/checkout/' + offer.listingId + '?offer=' + offer.id}>
                 Pay {rm(offer.agreedPrice)} with wallet
@@ -120,8 +120,7 @@ export default function OfferDetails() {
             </div>
           ) : (
             <p className="field-hint">Waiting for the buyer to pay the agreed amount.</p>
-          )
-        )}
+          ))}
 
         {offer.purchase && (
           <div className="profile-actions">

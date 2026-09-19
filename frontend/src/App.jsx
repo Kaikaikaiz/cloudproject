@@ -41,10 +41,16 @@ export default function App() {
             <Route path="/wallet" element={<Wallet />} />
             <Route path="/wallet/top-up" element={<TopUp />} />
             <Route path="/wallet/top-up/:id" element={<TopUpConfirmation />} />
-            <Route path="/wallet/top-up/:id/success" element={<PaymentSuccess kind="top-up" />} />
+            <Route
+              path="/wallet/top-up/:id/success"
+              element={<PaymentSuccess kind="top-up" />}
+            />
             <Route path="/checkout/:listingId" element={<Checkout />} />
             <Route path="/purchases/:id" element={<PaymentSuccess kind="purchase" />} />
-            <Route path="/purchases/:id/success" element={<PaymentSuccess kind="purchase" />} />
+            <Route
+              path="/purchases/:id/success"
+              element={<PaymentSuccess kind="purchase" />}
+            />
             <Route path="/profile" element={<Profile />} />
             <Route path="/sell" element={<ListingForm key="create" />} />
             <Route path="/listing/:id/edit" element={<ListingForm key="edit" />} />

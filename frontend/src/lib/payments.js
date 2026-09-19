@@ -11,4 +11,3 @@ export function checkoutReturnPath(value) {
 export function withReturnPath(path, returnTo) {
   return returnTo ? path + '?returnTo=' + encodeURIComponent(returnTo) : path;
 }
-

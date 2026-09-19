@@ -105,10 +105,10 @@ export function serializeCheckout(checkout) {
 export function paymentErrorHandler(error, _req, res, next) {
   if (['P2034', 'P1008', 'P2028', 'P2002'].includes(error.code)) {
     return res.status(409).json({
-      error: 'This payment changed while it was being processed. Refresh or retry the same payment.',
+      error:
+        'This payment changed while it was being processed. Refresh or retry the same payment.',
     });
   }
 
   next(error);
 }
-
