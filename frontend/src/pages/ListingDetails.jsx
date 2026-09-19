@@ -1,14 +1,17 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams, useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, Heart, Image, MapPin, Star, UserRound } from 'lucide-react';
-import { api, imageUrl } from '../lib/api';
+import { ArrowLeft, Heart, MapPin } from 'lucide-react';
+import { api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
-import { rm, rating, statusLabel, editableStatuses } from '../lib/listings';
+import { rm, statusLabel, editableStatuses } from '../lib/listings';
 import StatusBadge from '../components/StatusBadge';
 import EmptyState from '../components/EmptyState';
 import LoadingState from '../components/LoadingState';
 import Button from '../components/Button';
 import Modal from '../components/Modal';
+import ListingGallery from '../components/ListingGallery';
+import SellerSummary from '../components/SellerSummary';
+import MakeOfferModal from '../components/MakeOfferModal';
 export default function ListingDetails() {
   const { id } = useParams();
   const { user } = useAuth();
@@ -18,7 +21,6 @@ export default function ListingDetails() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [actionError, setActionError] = useState('');
-  const [selected, setSelected] = useState(0);
   const [favourite, setFavourite] = useState(false);
   const [busy, setBusy] = useState(false);
   const [dialog, setDialog] = useState('');
@@ -28,7 +30,6 @@ export default function ListingDetails() {
     let active = true;
     setLoading(true);
     setError('');
-    setSelected(0);
     api('/listings/' + id)
       .then((data) => {
         if (active) setListing(data.listing);
@@ -63,9 +64,9 @@ export default function ListingDetails() {
       active = false;
     };
   }, [id, user?.id, retry]);
-  const owner = user?.id === listing?.sellerId;
-  function buyerAction(action) {
-    if (owner || listing.status !== 'ACTIVE') return;
+  const isOwner = user?.id === listing?.sellerId;
+  function openBuyerActionDialog(action) {
+    if (isOwner || listing.status !== 'ACTIVE') return;
     if (!user) {
       navigate('/login', { state: { from: location.pathname } });
       return;
@@ -73,7 +74,7 @@ export default function ListingDetails() {
     setDialog(action);
   }
   async function toggleFavourite() {
-    if (owner || listing.status !== 'ACTIVE') return;
+    if (isOwner || listing.status !== 'ACTIVE') return;
     if (!user) {
       navigate('/login', { state: { from: location.pathname } });
       return;
@@ -100,7 +101,7 @@ export default function ListingDetails() {
       </div>
     );
   if (!listing) return null;
-  const disabled = owner || listing.status !== 'ACTIVE';
+  const disabled = isOwner || listing.status !== 'ACTIVE';
   return (
     <section className="page-section">
       <Link className="back-link" to="/">
@@ -112,37 +113,7 @@ export default function ListingDetails() {
         </p>
       )}
       <div className="detail-grid live-detail-grid">
-        <div className="listing-gallery">
-          <div className="detail-image tone-lavender">
-            {listing.images.length ? (
-              <img
-                src={imageUrl(listing.images[selected]?.url || listing.images[0].url)}
-                alt={listing.title + ' — photo ' + (selected + 1)}
-              />
-            ) : (
-              <span className="no-photo">
-                <Image size={60} strokeWidth={1} />
-                <span>No photos added yet</span>
-              </span>
-            )}
-          </div>
-          {listing.images.length > 1 && (
-            <div className="gallery-thumbnails">
-              {listing.images.map((image, index) => (
-                <button
-                  type="button"
-                  key={image.id}
-                  aria-label={'View photo ' + (index + 1)}
-                  aria-pressed={selected === index}
-                  className={selected === index ? 'selected' : ''}
-                  onClick={() => setSelected(index)}
-                >
-                  <img src={imageUrl(image.url)} alt="" />
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+        <ListingGallery key={listing.id} listing={listing} />
         <div className="detail-copy">
           <StatusBadge tone={listing.status === 'ACTIVE' ? 'mint' : 'lavender'}>
             {statusLabel(listing.status)}
@@ -158,40 +129,18 @@ export default function ListingDetails() {
           <h2 className="detail-subheading">A little about this find</h2>
           <p className="listing-description">{listing.description}</p>
           <small>Listed {new Date(listing.createdAt).toLocaleDateString('en-MY')}</small>
-          <div className="seller-summary">
-            {listing.seller.profileImage ? (
-              <img
-                src={imageUrl(listing.seller.profileImage)}
-                alt={listing.seller.name}
-              />
-            ) : (
-              <span className="seller-avatar">
-                <UserRound size={25} />
-              </span>
-            )}
-            <div>
-              <strong>{listing.seller.name}</strong>
-              <p>
-                <Star size={13} />
-                {rating(listing.seller.averageRating)} ·{' '}
-                {listing.seller.completedTransactions} completed transactions
-              </p>
-              <small>
-                {listing.seller.city && listing.seller.state
-                  ? listing.seller.city + ', ' + listing.seller.state + ' · '
-                  : ''}
-                Member since {new Date(listing.seller.createdAt).getFullYear()}
-              </small>
-            </div>
-          </div>
+          <SellerSummary seller={listing.seller} />
           <div className="buyer-actions">
-            <Button disabled={disabled} onClick={() => buyerAction('Make Offer')}>
+            <Button
+              disabled={disabled}
+              onClick={() => openBuyerActionDialog('Make Offer')}
+            >
               Make Offer
             </Button>
             <Button
               variant="secondary"
               disabled={disabled}
-              onClick={() => buyerAction('Buy Now')}
+              onClick={() => openBuyerActionDialog('Buy Now')}
             >
               Buy Now
             </Button>
@@ -205,7 +154,7 @@ export default function ListingDetails() {
               {busy ? 'Saving…' : favourite ? 'Favourited' : 'Favourite'}
             </Button>
           </div>
-          {owner ? (
+          {isOwner ? (
             <>
               <small>
                 This is your listing. You cannot buy, make offers on, or favourite your
@@ -224,7 +173,7 @@ export default function ListingDetails() {
             </>
           ) : (
             <small>
-              Offers and purchases are coming soon. Saving favourites is available now.
+              Make an offer to agree on a price with the seller. Buy Now is coming soon.
             </small>
           )}
           {actionError && (
@@ -240,18 +189,21 @@ export default function ListingDetails() {
         </div>
       </div>
       <Modal
-        open={!!dialog}
+        open={dialog === 'Buy Now'}
         onClose={() => setDialog('')}
-        title={dialog + ' · coming soon'}
+        title="Buy Now · coming soon"
       >
         <p className="modal-copy">
-          {dialog === 'Make Offer'
-            ? 'You’ll soon be able to send the seller an offer for this find.'
-            : 'You’ll soon be able to buy this find through reLIVE.'}{' '}
-          No offer, purchase, reservation or payment has been made.
+          You’ll soon be able to buy this find through reLIVE. No offer, purchase,
+          reservation or payment has been made.
         </p>
         <Button onClick={() => setDialog('')}>Got it</Button>
       </Modal>
+      <MakeOfferModal
+        listing={listing}
+        open={dialog === 'Make Offer'}
+        onClose={() => setDialog('')}
+      />
     </section>
   );
 }

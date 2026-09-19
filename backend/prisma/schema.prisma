@@ -1,33 +1,38 @@
 generator client {
   provider = "prisma-client-js"
 }
+
 datasource db {
   provider = "sqlite"
   url      = env("DATABASE_URL")
 }
+
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  name         String
-  passwordHash String
-  phone        String   @default("")
-  profileImage String?
-  state        String   @default("")
-  city         String   @default("")
-  averageRating Float   @default(0)
-  completedTransactions Int @default(0)
-  role         String   @default("USER")
-  tokenVersion Int      @default(0)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  listings     Listing[]
-  favourites   Favourite[]
+  id                    String         @id @default(cuid())
+  email                 String         @unique
+  name                  String
+  passwordHash          String
+  phone                 String         @default("")
+  profileImage          String?
+  state                 String         @default("")
+  city                  String         @default("")
+  averageRating         Float          @default(0)
+  completedTransactions Int            @default(0)
+  role                  String         @default("USER")
+  tokenVersion          Int            @default(0)
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+  listings              Listing[]
+  favourites            Favourite[]
+  offersMade            Offer[]        @relation("OfferBuyer")
+  offersReceived        Offer[]        @relation("OfferSeller")
+  offerHistory          OfferHistory[]
 }
 
 model Listing {
-  id          String   @id @default(cuid())
+  id          String         @id @default(cuid())
   sellerId    String
-  seller      User     @relation(fields: [sellerId], references: [id])
+  seller      User           @relation(fields: [sellerId], references: [id])
   title       String
   description String
   // Integer sen; API accepts and returns RM with two decimal places.
@@ -36,11 +41,13 @@ model Listing {
   condition   String
   state       String
   city        String
-  status      String   @default("ACTIVE")
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  status      String         @default("ACTIVE")
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
   images      ListingImage[]
   favourites  Favourite[]
+  offers      Offer[]
+
   @@index([status, createdAt])
   @@index([sellerId, createdAt])
 }
@@ -51,14 +58,54 @@ model ListingImage {
   listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
   url       String
   position  Int
+
   @@index([listingId, position])
 }
 
 model Favourite {
   userId    String
   listingId String
-  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
+
   @@id([userId, listingId])
+}
+
+model Offer {
+  id            String         @id @default(cuid())
+  listingId     String
+  listing       Listing        @relation(fields: [listingId], references: [id])
+  buyerId       String
+  buyer         User           @relation("OfferBuyer", fields: [buyerId], references: [id])
+  sellerId      String
+  seller        User           @relation("OfferSeller", fields: [sellerId], references: [id])
+  // All prices are stored in sen and returned as RM by the API.
+  originalPrice Int
+  currentAmount Int
+  agreedPrice   Int?
+  status        String         @default("PENDING")
+  nextActorId   String?
+  closeReason   String?
+  version       Int            @default(0)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  history       OfferHistory[]
+
+  @@index([buyerId, updatedAt])
+  @@index([sellerId, updatedAt])
+  @@index([listingId, status])
+}
+
+model OfferHistory {
+  id        Int      @id @default(autoincrement())
+  offerId   String
+  offer     Offer    @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  amount    Int
+  action    String
+  createdAt DateTime @default(now())
+
+  @@index([offerId, id])
 }

@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ImagePlus, X } from 'lucide-react';
-import { api, imageUrl } from '../lib/api';
+import { api } from '../lib/api';
+import { readImageFile } from '../lib/readImageFile';
+import ListingPhotoPicker from '../components/ListingPhotoPicker';
 import { useAuth } from '../context/AuthContext';
 import { categories, conditions, editableStatuses } from '../lib/listings';
 import Button from '../components/Button';
@@ -24,8 +25,8 @@ export default function ListingForm() {
     city: user.city || '',
   });
   const [images, setImages] = useState([]);
-  const [version, setVersion] = useState('');
-  const [revision, setRevision] = useState(false);
+  const [listingUpdatedAt, setListingUpdatedAt] = useState('');
+  const [needsRevision, setNeedsRevision] = useState(false);
   const [loading, setLoading] = useState(!!id);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -59,8 +60,8 @@ export default function ListingForm() {
           ),
         );
         setImages(listing.images.map((image) => image.url));
-        setVersion(listing.updatedAt);
-        setRevision(listing.status === 'NEEDS_REVISION');
+        setListingUpdatedAt(listing.updatedAt);
+        setNeedsRevision(listing.status === 'NEEDS_REVISION');
       })
       .catch((err) => {
         if (active) setUnavailable(err.message);
@@ -72,12 +73,12 @@ export default function ListingForm() {
       active = false;
     };
   }, [id, user.id]);
-  function change(e) {
-    setValues((current) => ({ ...current, [e.target.name]: e.target.value }));
+  function handleFieldChange(event) {
+    setValues((current) => ({ ...current, [event.target.name]: event.target.value }));
   }
-  async function addImages(e) {
-    const files = Array.from(e.target.files || []);
-    e.target.value = '';
+  async function handleAddImages(event) {
+    const files = Array.from(event.target.files || []);
+    event.target.value = '';
     setError('');
     if (images.length + files.length > 5) {
       setError('You can add up to five images. Remove an image before adding another.');
@@ -95,18 +96,7 @@ export default function ListingForm() {
     }
     setBusy(true);
     try {
-      const added = await Promise.all(
-        files.map(
-          (file) =>
-            new Promise((resolve, reject) => {
-              const reader = new FileReader();
-              reader.onload = () => resolve(reader.result);
-              reader.onerror = () =>
-                reject(new Error('Could not read an image. Please try another file.'));
-              reader.readAsDataURL(file);
-            }),
-        ),
-      );
+      const added = await Promise.all(files.map(readImageFile));
       setImages((current) => [...current, ...added]);
     } catch (err) {
       setError(err.message);
@@ -114,8 +104,14 @@ export default function ListingForm() {
       setBusy(false);
     }
   }
-  async function submit(e) {
-    e.preventDefault();
+  function handleRemoveImage(imageIndex) {
+    setImages((currentImages) =>
+      currentImages.filter((image, index) => index !== imageIndex),
+    );
+  }
+
+  async function handleSubmit(event) {
+    event.preventDefault();
     setBusy(true);
     setError('');
     if (!values.state || !values.city.trim()) {
@@ -126,12 +122,12 @@ export default function ListingForm() {
     try {
       const { listing } = await api('/listings' + (id ? '/' + id : ''), {
         method: id ? 'PATCH' : 'POST',
-        body: { ...values, images, ...(id ? { updatedAt: version } : {}) },
+        body: { ...values, images, ...(id ? { updatedAt: listingUpdatedAt } : {}) },
       });
       navigate('/listing/' + listing.id, {
         replace: true,
         state: {
-          notice: revision
+          notice: needsRevision
             ? 'Your changes were submitted for review.'
             : id
               ? 'Your listing has been updated.'
@@ -154,20 +150,20 @@ export default function ListingForm() {
           <span className="eyebrow muted">MAKE ROOM FOR WHAT’S NEXT</span>
           <h1>{id ? 'Edit your listing' : 'Give it another life.'}</h1>
           <p>
-            {revision
+            {needsRevision
               ? 'Save your changes to resubmit this listing for review.'
               : 'A few little details help your item find its next home.'}
           </p>
         </div>
       </div>
-      <form className="surface listing-form" onSubmit={submit}>
+      <form className="surface listing-form" onSubmit={handleSubmit}>
         <fieldset disabled={busy}>
           <legend className="sr-only">Listing details</legend>
           <Input
             label="Title"
             name="title"
             value={values.title}
-            onChange={change}
+            onChange={handleFieldChange}
             required
             minLength={2}
             maxLength={120}
@@ -179,7 +175,7 @@ export default function ListingForm() {
               id="description"
               name="description"
               value={values.description}
-              onChange={change}
+              onChange={handleFieldChange}
               required
               minLength={10}
               maxLength={5000}
@@ -193,7 +189,7 @@ export default function ListingForm() {
               name="price"
               type="number"
               value={values.price}
-              onChange={change}
+              onChange={handleFieldChange}
               required
               min="0"
               max="999999.99"
@@ -203,7 +199,7 @@ export default function ListingForm() {
               label="Category"
               name="category"
               value={values.category}
-              onChange={change}
+              onChange={handleFieldChange}
               options={categories}
               required
             />
@@ -211,57 +207,21 @@ export default function ListingForm() {
               label="Condition"
               name="condition"
               value={values.condition}
-              onChange={change}
+              onChange={handleFieldChange}
               options={conditions}
               required
             />
           </div>
-          <LocationFields values={values} onChange={change} />
+          <LocationFields values={values} onChange={handleFieldChange} />
           <small>
             State and City / Area are required. Enter the Malaysian area where the item is
             located.
           </small>
-          <div className="field">
-            <span className="field-label">Photos ({images.length}/5)</span>
-            <p className="field-hint">
-              Optional · PNG, JPEG or WebP · up to 2 MB each. The first image is your
-              cover.
-            </p>
-            <div className="listing-photo-grid">
-              {images.map((image, index) => (
-                <div className="photo-preview" key={index}>
-                  <img
-                    src={image.startsWith('data:') ? image : imageUrl(image)}
-                    alt={'Listing photo ' + (index + 1)}
-                  />
-                  <button
-                    type="button"
-                    className="icon-button photo-remove"
-                    aria-label={'Remove photo ' + (index + 1)}
-                    onClick={() =>
-                      setImages((current) => current.filter((_, i) => i !== index))
-                    }
-                  >
-                    <X size={16} />
-                  </button>
-                  <span>{index === 0 ? 'Cover' : index + 1}</span>
-                </div>
-              ))}
-              {images.length < 5 && (
-                <label className="photo-add">
-                  <ImagePlus size={25} />
-                  <span>Add photos</span>
-                  <input
-                    type="file"
-                    multiple
-                    accept="image/png,image/jpeg,image/webp"
-                    onChange={addImages}
-                    aria-label="Add listing images"
-                  />
-                </label>
-              )}
-            </div>
-          </div>
+          <ListingPhotoPicker
+            images={images}
+            onAddImages={handleAddImages}
+            onRemoveImage={handleRemoveImage}
+          />
         </fieldset>
         {error && (
           <p className="form-message error-message" role="alert">
@@ -272,7 +232,7 @@ export default function ListingForm() {
           <Button type="submit" disabled={busy}>
             {busy
               ? 'Saving…'
-              : revision
+              : needsRevision
                 ? 'Submit for review'
                 : id
                   ? 'Save changes'

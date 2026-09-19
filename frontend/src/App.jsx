@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Routes, Route, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import EmptyState from './components/EmptyState';
@@ -14,6 +14,8 @@ import ProtectedRoute from './components/ProtectedRoute';
 import ListingForm from './pages/ListingForm';
 import MyListings from './pages/MyListings';
 import Favourites from './pages/Favourites';
+import Offers from './pages/Offers';
+import OfferDetails from './pages/OfferDetails';
 export default function App() {
   const { pathname } = useLocation();
   useEffect(() => {
@@ -32,10 +34,7 @@ export default function App() {
           <Route path="/marketplace" element={<Marketplace />} />
           <Route path="/listing/:id" element={<ListingDetails />} />
           <Route element={<ProtectedRoute />}>
-            {[
-              ['my-offers', 'offers'],
-              ['wallet', 'wallet'],
-            ].map(([path, page]) => (
+            {[['wallet', 'wallet']].map(([path, page]) => (
               <Route key={path} path={path} element={<Placeholder page={page} />} />
             ))}
             <Route path="/profile" element={<Profile />} />
@@ -43,6 +42,13 @@ export default function App() {
             <Route path="/listing/:id/edit" element={<ListingForm key="edit" />} />
             <Route path="/my-listings" element={<MyListings />} />
             <Route path="/favourites" element={<Favourites />} />
+            <Route
+              path="/my-offers"
+              element={<Navigate to="/my-offers/made" replace />}
+            />
+            <Route path="/my-offers/made" element={<Offers direction="made" />} />
+            <Route path="/my-offers/received" element={<Offers direction="received" />} />
+            <Route path="/offers/:id" element={<OfferDetails />} />
           </Route>
           <Route element={<ProtectedRoute admin />}>
             <Route path="/admin" element={<Admin />} />

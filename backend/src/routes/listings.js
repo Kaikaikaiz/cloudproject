@@ -11,6 +11,7 @@ import {
   withdrawableStatuses,
 } from '../lib/listings.js';
 import { validateImages, saveImages, removeImages } from '../lib/listingImages.js';
+import { closeOpenOffers } from '../lib/offers.js';
 const router = Router();
 async function owned(id, userId) {
   const listing = await prisma.listing.findUnique({
@@ -124,15 +125,22 @@ router.post('/:id/withdraw', requireAuth, async (req, res) => {
   const listing = await owned(req.params.id, req.user.id);
   if (!withdrawableStatuses.includes(listing.status))
     fail('This listing cannot be withdrawn in its current status.', 409);
-  const changed = await prisma.listing.updateMany({
-    where: {
-      id: listing.id,
-      sellerId: req.user.id,
-      status: { in: withdrawableStatuses },
-    },
-    data: { status: 'WITHDRAWN' },
+  await prisma.$transaction(async (transaction) => {
+    const changed = await transaction.listing.updateMany({
+      where: {
+        id: listing.id,
+        sellerId: req.user.id,
+        status: { in: withdrawableStatuses },
+      },
+      data: { status: 'WITHDRAWN' },
+    });
+
+    if (!changed.count) {
+      fail('This listing changed. Refresh and try again.', 409);
+    }
+
+    await closeOpenOffers(transaction, listing.id, req.user.id, 'LISTING_WITHDRAWN');
   });
-  if (!changed.count) fail('This listing changed. Refresh and try again.', 409);
   res.json({ message: 'Listing withdrawn.' });
 });
 export default router;

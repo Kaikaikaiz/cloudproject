@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { MapPin, Star, PackageCheck, UserRound } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api, imageUrl } from '../lib/api';
+import { readImageFile } from '../lib/readImageFile';
 import Button from '../components/Button';
 import Input from '../components/Input';
 import Modal from '../components/Modal';
@@ -61,12 +62,7 @@ export default function Profile() {
     }
     setBusy(true);
     try {
-      const image = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = () => reject(new Error('Could not read this image.'));
-        reader.readAsDataURL(file);
-      });
+      const image = await readImageFile(file);
       const data = await api('/profile/image', { method: 'PUT', body: { image } });
       setUser(data.user);
       setNotice('Your profile image has been updated.');

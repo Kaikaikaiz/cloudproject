@@ -1,7 +1,7 @@
 # reLIVE
 **Give it another life.**
 
-A localhost second-hand marketplace with a clean pastel interface, account authentication, profiles, real listings, search and filters, seller management, and favourites.
+A localhost second-hand marketplace with a clean pastel interface, account authentication, profiles, real listings, search and filters, seller management, favourites, and price negotiations.
 
 ## Requirements
 - Node.js 22.12+ (verified with 22.19) and npm
@@ -61,7 +61,7 @@ frontend/
                     StatusBadge, EmptyState, LoadingState, ItemArt
     pages/          Marketplace, ListingDetails, Placeholder, Auth,
                     Profile, ForgotPassword, Admin, ListingForm,
-                    MyListings, Favourites
+                    MyListings, Favourites, Offers, OfferDetails
     context/        AuthProvider: restores the cookie session on reload
     lib/            API client with credentials and error handling
     App.jsx         React Router routes and shared layout
@@ -69,14 +69,14 @@ frontend/
   .env.example
 backend/
   prisma/
-    schema.prisma   Users, listings, ordered listing images, favourites
+    schema.prisma   Users, listings, images, favourites, offers and history
     migrations/     Additive migrations; existing accounts are preserved
     seed.js         One fixed ADMIN account
   scripts/          Local auth configuration and SQLite initialization
   src/
     lib/            Prisma, scrypt passwords, JWT, cookies, validation
     middleware/     Authentication and administrator guards
-    routes/         Authentication, profiles, listings and favourites
+    routes/         Authentication, profiles, listings, favourites and offers
     app.js          Express, CORS, local static uploads, health endpoint
     server.js       Database connection and server lifecycle
   uploads/          Local image storage (contents ignored by Git)
@@ -91,7 +91,10 @@ backend/
 | Edit Listing | `/listing/:id/edit` |
 | Sell Item | `/sell` |
 | My Listings | `/my-listings` |
-| My Offers | `/my-offers` |
+| My Offers | `/my-offers` (redirects to Offers Made) |
+| Offers Made | `/my-offers/made` |
+| Offers Received | `/my-offers/received` |
+| Offer Details | `/offers/:id` |
 | Favourites | `/favourites` |
 | Wallet | `/wallet` |
 | Profile | `/profile` |
@@ -109,8 +112,8 @@ backend/
 - Forgot password is explicitly a mock acknowledgement: no email, token or password change occurs.
 - `VITE_API_URL` configures the frontend API base URL.
 - The hero retains its local SVG illustrations. Listing photos are real local uploads. Google Fonts is optional; system sans-serif fallbacks work offline.
-- Make Offer and Buy Now open clearly labelled coming-soon dialogs and perform no offer, purchase, payment, or reservation. Both actions and Favourite are disabled for the seller's own listing. Favourites are persisted, with an independent server-side ownership guard.
-- My Offers, Wallet and admin management tools remain placeholders. No external image services or AWS integrations.
+- Make Offer starts a real negotiation. Buyers and sellers can take turns accepting, rejecting or countering. Buyers can cancel an open negotiation. Favourites are persisted, and self-favouriting/self-bargaining are blocked by the backend.
+- Buy Now, Wallet and admin management tools remain placeholders. There is no chat system, payment processing, external image service or AWS integration.
 
 ## Listing management
 Create a listing at `/sell`; it becomes ACTIVE immediately. Photos are optional, with a maximum of five PNG/JPEG/WebP files, up to 2 MB each. The first photo is the cover. The server validates count, file type and signature, generates filenames, and stores them in `backend/uploads`. Editing can retain/remove existing images and add replacements; removed listing image files are cleaned up.
@@ -123,7 +126,44 @@ Conditions: Like New, Good, Fair, Well Used.
 
 All statuses are represented: ACTIVE, RESERVED, SOLD, WITHDRAWN, UNDER_REVIEW, NEEDS_REVISION, REMOVED. Only the owner can view non-public listings and manage them. Owner edits are permitted only for ACTIVE and NEEDS_REVISION. Editing NEEDS_REVISION resubmits it as UNDER_REVIEW, so it is not automatically republished. ACTIVE, NEEDS_REVISION and UNDER_REVIEW can be withdrawn. RESERVED and SOLD cannot be withdrawn. Withdrawal is the supported soft-delete operation; it keeps the listing in My Listings and removes it from the marketplace.
 
-Clients cannot assign sellerId/status directly. Edits send the last `updatedAt` value; stale or concurrent changes return 409 instead of overwriting newer changes. Statuses for purchases and moderation are reserved for future workflows and cannot be set through seller forms.
+Clients cannot assign sellerId/status directly. Edits send the last `updatedAt` value; stale or concurrent changes return 409 instead of overwriting newer changes. Accepting an offer reserves the listing. Other purchase and moderation transitions cannot be set through seller forms.
+
+## Bargaining
+A buyer submits an amount on an ACTIVE listing. The seller may accept, reject or counter. A counter passes the turn to the other participant. Only the recipient of the latest amount may accept, reject or counter; the buyer may cancel at any time while the offer is open. The API enforces these rules independently of the displayed buttons.
+
+Multiple buyers can negotiate for one listing, with one open negotiation per buyer/listing pair. A buyer may start a new negotiation after rejection or cancellation if the listing is still ACTIVE. Amounts must be RM 0.01–999,999.99, with up to two decimal places. All amounts are stored as integer sen.
+
+Offer statuses are PENDING, COUNTERED, ACCEPTED, REJECTED, CANCELLED, CLOSED and COMPLETED. A counter from either participant uses COUNTERED; `nextActorId` records whose turn it is. `originalPrice` is a snapshot of the listing price when the offer starts. `currentAmount` tracks the negotiated price. `agreedPrice` is saved only on acceptance. Negotiating never changes the public listing price.
+
+Acceptance by the seller, or by the buyer responding to the seller's counter, runs in one transaction:
+
+1. Mark the chosen offer ACCEPTED and save its agreed price.
+2. Mark the listing RESERVED.
+3. Close all other PENDING/COUNTERED offers for that listing.
+4. Append acceptance and closure events to OfferHistory.
+
+SQLite partial unique indexes also prevent duplicate open negotiations and more than one accepted/completed agreement per listing. They are defined in the offer migration because the Prisma schema cannot represent these conditional indexes. Preserve them in future migrations.
+
+Every offer action appends an ordered history entry with actor, amount, action and timestamp. Closed offers retain their history and closure reason. Listing withdrawal closes its open negotiations too. Accepted offers remain readable by their participants even though the listing is no longer public.
+
+The server sends `allowedActions` for each offer. Responses include a `version`; clients must send it back when acting. Stale or competing requests return 409 instead of overwriting a newer response. Use the Refresh button to load the latest negotiation state.
+
+COMPLETED is reserved for a future transaction-completion workflow. Acceptance saves the agreement and reservation; it does not take payment or mark a transaction completed.
+
+## Offer API
+All offer endpoints require authentication. Only the buyer and seller can read a negotiation or its history.
+
+| Method | Endpoint | Body / purpose |
+| --- | --- | --- |
+| GET | `/api/offers?direction=made` | Own offers as buyer |
+| GET | `/api/offers?direction=received` | Own offers as seller |
+| POST | `/api/offers` | `listingId`, `amount` in RM |
+| GET | `/api/offers/:id` | Details, timeline and allowed actions |
+| POST | `/api/offers/:id/actions` | `action`, `version`, and `amount` for a counter |
+
+Actions: `accept`, `reject`, `counter`, `cancel`. Buyer, seller, original price and status are derived by the server, never trusted from the request.
+
+To try the flow locally, create a listing with one account and make an offer from a second account. Use Offers Received to counter as the seller, and Offers Made to respond as the buyer. A second buyer can negotiate independently until one offer is accepted.
 
 Favourites show saved ACTIVE listings only. Seller summaries expose name, photo, location, rating, completed transactions and membership date, never email, phone or password hashes.
 
@@ -170,7 +210,12 @@ The registration endpoint always creates USER accounts, rejects submitted roles,
 
 Browser requests include credentials. Mutating requests from foreign origins are rejected. Public authentication endpoints are limited to 30 attempts per IP per 15 minutes in memory. API responses never expose password hashes or JWTs. Bearer tokens are also accepted for API clients.
 
-`npm test` uses isolated temporary SQLite databases to check authentication, listing CRUD, owner boundaries, all listing statuses, image limits and cleanup, filters, sorting, pagination and favourites. It does not alter the development database.
+`npm test` uses isolated temporary SQLite databases to check authentication, listing CRUD, image validation, filters, favourites, offer authorization, turn-taking, timelines, cancellation/rejection, stale requests and concurrent acceptance. It does not alter the development database.
+
+## Code formatting
+Both frontend and backend use the shared Prettier configuration: two spaces, readable line wrapping and consistent quotes. Run `npm run format` to format that project's source, or `npm run format:check` to verify it.
+
+Keep components and helpers focused. Shared galleries, seller summaries, photo pickers and file readers live outside page components. Offer cards, actions, navigation and timeline are separate components. Add blank lines between logical sections and use comments to explain non-obvious rules.
 
 ## Dependency audit
 At setup, npm reported four high-severity advisories in the Prisma CLI dependency tree (Prisma, @prisma/config, effect, and deepmerge-ts). They concern development/database tooling. The generated client uses a matching pinned Prisma version; review upstream fixes before extending this scaffold for deployment. Frontend installation reported no vulnerabilities.
