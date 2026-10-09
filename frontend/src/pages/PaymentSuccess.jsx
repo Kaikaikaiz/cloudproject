@@ -30,7 +30,10 @@ export default function PaymentSuccess({ kind }) {
       .then((data) => {
         const receipt = isTopUp ? data.topUp : data.purchase;
 
-        if (receipt.status !== 'SUCCESS') {
+        if (!(
+          receipt.status === 'SUCCESS' ||
+          (!isTopUp && receipt.status === 'COMPLETED')
+        )) {
           throw new Error(
             'This payment has not completed. Check its status in your wallet.',
           );

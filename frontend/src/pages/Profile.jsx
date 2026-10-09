@@ -1,6 +1,8 @@
+import PublicProfile from './PublicProfile';
+import Transactions from './Transactions';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { MapPin, UserRound } from 'lucide-react';
+import { MapPin, UserRound, LogOut } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api, imageUrl, uploadCloudImage } from '../lib/api';
 import { readImageFile } from '../lib/readImageFile';
@@ -13,6 +15,7 @@ import Reputation from '../components/Reputation';
 export default function Profile() {
   const { user, setUser, logout } = useAuth();
   const navigate = useNavigate();
+  const [tab, setTab] = useState('public');
   const [editing, setEditing] = useState(false);
   const [values, setValues] = useState({});
   const [busy, setBusy] = useState(false);
@@ -77,7 +80,10 @@ export default function Profile() {
     setBusy(true);
     try {
       const image = await readImageFile(file);
-      const data = await api('/profile/image', { method: 'PUT', body: { image: await uploadCloudImage(image, 'profile') } });
+      const data = await api('/profile/image', {
+        method: 'PUT',
+        body: { image: await uploadCloudImage(image, 'profile') },
+      });
       setUser(data.user);
       setNotice('Your profile image has been updated.');
     } catch (err) {
@@ -150,19 +156,55 @@ export default function Profile() {
           </Button>
         </div>
         <Reputation user={user} />
-        <div className="profile-actions">
-          <Button to={'/users/' + user.id} variant="secondary">
-            Public profile & reviews
-          </Button>
-          {user.role !== 'ADMIN' && (
-            <>
-              <Button to="/my-purchases" variant="ghost">
-                My Purchases
-              </Button>
-              <Button to="/my-sales" variant="ghost">
-                My Sales
-              </Button>
-            </>
+        <div className="profile-tabs" role="tablist" aria-label="Profile sections">
+          {[
+            ['public', 'Public Profile & Reviews'],
+            ...(user.role === 'ADMIN'
+              ? []
+              : [
+                  ['purchases', 'My Purchases'],
+                  ['sales', 'My Sales'],
+                ]),
+          ].map(([key, label]) => (
+            <button
+              key={key}
+              id={'profile-tab-' + key}
+              role="tab"
+              aria-selected={tab === key}
+              aria-controls="profile-panel"
+              tabIndex={tab === key ? 0 : -1}
+              onKeyDown={(event) => {
+                const tabs = Array.from(
+                  event.currentTarget.parentElement.querySelectorAll('[role="tab"]'),
+                );
+                const index = tabs.indexOf(event.currentTarget);
+                const target =
+                  event.key === 'ArrowRight'
+                    ? (index + 1) % tabs.length
+                    : event.key === 'ArrowLeft'
+                      ? (index + tabs.length - 1) % tabs.length
+                      : event.key === 'Home'
+                        ? 0
+                        : event.key === 'End'
+                          ? tabs.length - 1
+                          : null;
+                if (target !== null) {
+                  event.preventDefault();
+                  tabs[target].focus();
+                  tabs[target].click();
+                }
+              }}
+              onClick={() => setTab(key)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <div id="profile-panel" role="tabpanel" aria-labelledby={'profile-tab-' + tab}>
+          {tab === 'public' ? (
+            <PublicProfile userId={user.id} embedded />
+          ) : (
+            <Transactions key={tab} direction={tab} embedded />
           )}
         </div>
         <dl className="profile-contact">
@@ -176,6 +218,25 @@ export default function Profile() {
           </div>
         </dl>
         <div className="profile-actions">
+          <Button
+            className="profile-logout"
+            variant="ghost"
+            onClick={signOut}
+            disabled={busy}
+          >
+            <LogOut size={17} aria-hidden="true" /> Log out
+          </Button>
+          {user.role === 'ADMIN' && <Link to="/admin">Admin workspace ↗</Link>}
+        </div>
+      </div>
+      <Modal
+        open={editing}
+        onClose={() => {
+          if (!busy) setEditing(false);
+        }}
+        title="Edit your profile"
+      >
+        <form className="profile-form" onSubmit={save}>
           <label className="button button--secondary upload-label">
             {busy ? 'Please wait…' : 'Change profile image'}
             <input
@@ -186,24 +247,9 @@ export default function Profile() {
               aria-label="Change profile image"
             />
           </label>
-          <Button variant="ghost" onClick={signOut} disabled={busy}>
-            Log out
-          </Button>
-          {user.role === 'ADMIN' && <Link to="/admin">Admin workspace ↗</Link>}
-        </div>
-        <small>
-          PNG, JPEG or WebP, up to 700 KB. Your email and phone are private account
-          details.
-        </small>
-      </div>
-      <Modal
-        open={editing}
-        onClose={() => {
-          if (!busy) setEditing(false);
-        }}
-        title="Edit your profile"
-      >
-        <form className="profile-form" onSubmit={save}>
+          <small>
+            PNG, JPEG or WebP, up to 700 KB. Image changes are saved immediately.
+          </small>
           <Input
             label="Name"
             name="name"

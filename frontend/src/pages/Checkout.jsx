@@ -1,3 +1,4 @@
+import { requestKey as newRequestKey } from '../lib/requestKey';
 import { useEffect, useState } from 'react';
 import {
   Link,
@@ -20,7 +21,7 @@ export default function Checkout() {
   const location = useLocation();
   const navigate = useNavigate();
   const [checkout, setCheckout] = useState(null);
-  const [requestKey] = useState(() => crypto.randomUUID());
+  const [requestKey] = useState(() => newRequestKey());
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');

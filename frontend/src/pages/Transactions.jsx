@@ -1,3 +1,5 @@
+import { useCursorPage } from '../lib/useCursorPage';
+import PageControls from '../components/PageControls';
 import { useEffect, useState } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import { api } from '../lib/api';
@@ -7,7 +9,8 @@ import LoadingState from '../components/LoadingState';
 import EmptyState from '../components/EmptyState';
 import StatusBadge from '../components/StatusBadge';
 
-export default function Transactions({ direction }) {
+export default function Transactions({ direction, embedded = false }) {
+  const page = useCursorPage(direction);
   const [transactions, setTransactions] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -19,9 +22,17 @@ export default function Transactions({ direction }) {
     setIsLoading(true);
     setError('');
 
-    api('/transactions?direction=' + direction)
+    api(
+      '/transactions?direction=' +
+        direction +
+        '&limit=20' +
+        (page.cursor ? '&cursor=' + encodeURIComponent(page.cursor) : ''),
+    )
       .then((data) => {
-        if (isActive) setTransactions(data.transactions);
+        if (isActive) {
+          setTransactions(data.transactions);
+          page.setNext(data.nextCursor);
+        }
       })
       .catch((requestError) => {
         if (isActive) setError(requestError.message);
@@ -33,10 +44,10 @@ export default function Transactions({ direction }) {
     return () => {
       isActive = false;
     };
-  }, [direction, refreshCount]);
+  }, [direction, refreshCount, page.cursor]);
 
   return (
-    <section className="page-section">
+    <section className={embedded ? 'profile-embedded' : 'page-section'}>
       <div className="page-heading">
         <div>
           <span className="eyebrow muted">ANOTHER LIFE, A NEW CHAPTER</span>
@@ -46,15 +57,20 @@ export default function Transactions({ direction }) {
         <Button
           variant="secondary"
           disabled={isLoading}
-          onClick={() => setRefreshCount((count) => count + 1)}
+          onClick={() => {
+            page.reset();
+            setRefreshCount((count) => count + 1);
+          }}
         >
           Refresh
         </Button>
       </div>
-      <nav className="history-navigation" aria-label="Transaction history">
-        <NavLink to="/my-purchases">My Purchases</NavLink>
-        <NavLink to="/my-sales">My Sales</NavLink>
-      </nav>
+      {!embedded && (
+        <nav className="history-navigation" aria-label="Transaction history">
+          <NavLink to="/my-purchases">My Purchases</NavLink>
+          <NavLink to="/my-sales">My Sales</NavLink>
+        </nav>
+      )}
       {isLoading ? (
         <LoadingState label="Loading your history…" />
       ) : error ? (
@@ -109,6 +125,7 @@ export default function Transactions({ direction }) {
           })}
         </div>
       )}
+      <PageControls page={page} disabled={isLoading} />
     </section>
   );
 }

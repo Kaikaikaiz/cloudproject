@@ -20,6 +20,11 @@ export function register(app, { store, images, safe, auth, member, serialize, ow
   app.get('/api/users/:id', async (req, res) => {
     const user = await store.user(req.params.id);
     if (!user) fail('User not found.', 404);
-    res.json({ user: await safe(user, true), reviews: [] });
+    const records = await store.commerce.records(user.id, 'REVIEW');
+    const reviews = await Promise.all(records.map(async ({ id, rating, comment, createdAt, reviewerId }) => {
+      const reviewer = await store.user(reviewerId);
+      return { id, rating, comment, createdAt, reviewer: { id: reviewerId, name: reviewer?.name || 'Unavailable user' } };
+    }));
+    res.json({ user: await safe(user, true), reviews });
   });
 }

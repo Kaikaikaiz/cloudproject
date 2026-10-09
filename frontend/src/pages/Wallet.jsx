@@ -1,3 +1,5 @@
+import { useCursorPage } from '../lib/useCursorPage';
+import PageControls from '../components/PageControls';
 import { useEffect, useState } from 'react';
 import { Wallet as WalletIcon, TrendingUp } from 'lucide-react';
 import { api } from '../lib/api';
@@ -7,6 +9,7 @@ import LoadingState from '../components/LoadingState';
 import WalletHistory from '../components/WalletHistory';
 
 export default function Wallet() {
+  const page = useCursorPage('wallet');
   const [wallet, setWallet] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -17,10 +20,14 @@ export default function Wallet() {
     setIsLoading(true);
     setError('');
 
-    api('/wallet')
+    api(
+      '/wallet?limit=20' +
+        (page.cursor ? '&cursor=' + encodeURIComponent(page.cursor) : ''),
+    )
       .then((data) => {
         if (isActive) {
           setWallet(data);
+          page.setNext(data.nextCursor);
         }
       })
       .catch((requestError) => {
@@ -37,7 +44,7 @@ export default function Wallet() {
     return () => {
       isActive = false;
     };
-  }, [refreshCount]);
+  }, [refreshCount, page.cursor]);
 
   return (
     <section className="page-section">
@@ -50,7 +57,10 @@ export default function Wallet() {
         <Button
           variant="secondary"
           disabled={isLoading}
-          onClick={() => setRefreshCount((count) => count + 1)}
+          onClick={() => {
+            page.reset();
+            setRefreshCount((count) => count + 1);
+          }}
         >
           Refresh
         </Button>
@@ -100,6 +110,7 @@ export default function Wallet() {
           </section>
         </>
       )}
+      <PageControls page={page} disabled={isLoading} />
     </section>
   );
 }

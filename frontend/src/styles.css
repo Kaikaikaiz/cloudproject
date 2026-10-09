@@ -2028,3 +2028,57 @@ html[data-theme='dark'] .dashboard-card.needs-attention { background: #4d4026; }
   .hero-actions, .profile-actions { align-items: stretch; flex-direction: column; }
   .hero-actions .button, .profile-actions .button { width: 100%; justify-content: center; }
 }
+
+/* Header navigation and account controls share the existing reLIVE palette. */
+.site-header .nav-wrap { gap: 24px; }
+.site-header .nav-links { gap: 18px; min-width: 0; }
+.site-header .nav-links a:hover { color: var(--purple, #765793); }
+.nav-account { display: flex; align-items: center; gap: 8px; margin-left: auto; padding-left: 16px; border-left: 1px solid var(--line); flex-shrink: 0; }
+.nav-account a { display: inline-flex; align-items: center; gap: 7px; padding: 10px; border-radius: 9px; font-size: 12px; font-weight: 650; white-space: nowrap; transition: background-color .15s, color .15s; }
+.nav-account a:hover, .nav-account a:focus-visible, .nav-account a.active { background: var(--lavender); color: #765793; }
+.nav-profile span { max-width: 110px; overflow: hidden; text-overflow: ellipsis; }
+.nav-account svg { flex-shrink: 0; }
+.nav-avatar { width: 23px; height: 23px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+.notification-dot, .nav-notification i.notification-dot { display: inline-block; width: 7px; min-width: 7px; height: 7px; padding: 0; border-radius: 50%; background: #dc3545; }
+.nav-notification i.notification-dot { top: -3px; right: -4px; }
+.dashboard-notifications h2 .notification-dot { vertical-align: middle; margin-left: 4px; }
+@media (max-width: 1100px) {
+  .site-header .nav-wrap { gap: 12px; }
+  .site-header .nav-links { gap: 12px; }
+  .nav-account { padding-left: 8px; gap: 2px; }
+  .nav-profile span { max-width: 85px; }
+}
+@media (max-width: 1000px) {
+  .site-header .nav-wrap { position: relative; min-height: 75px; }
+  .site-header .mobile-menu { display: inline-flex !important; order: 3; }
+  .site-header .nav-links { display: none; position: absolute; top: 100%; left: 0; right: 0; padding: 14px 28px 24px; background: var(--page); box-shadow: 0 12px 15px #3836400c; z-index: 10; }
+  .site-header .nav-links.is-open { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .site-header .nav-links a { padding: 12px; font-size: 13px; border-radius: 8px; }
+  .site-header .nav-links a.active { background: var(--lavender); }
+  .site-header .nav-links a.active::after { display: none; }
+}
+@media (max-width: 480px) {
+  .site-header .nav-wrap { padding: 0 12px; gap: 5px; }
+  .site-header .logo { font-size: 23px; }
+  .site-header .logo-mark { width: 26px; height: 26px; font-size: 24px; margin-right: 4px; }
+  .nav-account { padding-left: 5px; }
+  .nav-account a { padding: 8px 4px; font-size: 11px; gap: 4px; }
+  .nav-profile span { max-width: 58px; }
+  .site-header .mobile-menu { padding: 5px; }
+}
+@media (max-width: 360px) {
+  .site-header .logo { font-size: 20px; }
+  .site-header .logo-mark { display: none; }
+  .nav-profile span { max-width: 40px; }
+}
+
+.profile-tabs { display: flex; gap: 6px; border-bottom: 1px solid var(--line); margin-top: 24px; padding-bottom: 8px; }
+.profile-tabs button { border: 0; background: transparent; color: var(--muted); padding: 11px 14px; border-radius: 9px; font: inherit; font-size: 13px; cursor: pointer; }
+.profile-tabs button[aria-selected='true'], .profile-tabs button:hover { background: var(--lavender); color: #765793; }
+.profile-embedded { padding: 20px 0; min-width: 0; }
+.profile-embedded .page-heading { margin-bottom: 18px; }
+.profile-embedded .page-heading h1 { font-size: 22px; }
+.profile-embedded .public-reviews { padding: 0; }
+.profile-logout.button { border: 1px solid #b83a49; color: #b83a49; background: transparent; }
+.profile-logout.button:hover { background: #fcecef; }
+@media(max-width: 600px) { .profile-tabs { gap: 3px; } .profile-tabs button { flex: 1; padding: 10px 6px; font-size: 11px; } }

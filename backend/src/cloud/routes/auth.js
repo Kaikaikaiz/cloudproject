@@ -4,7 +4,7 @@ import { signToken } from '../../lib/jwt.js';
 import { fail, profileValues, emailValue, passwordValue } from '../../lib/validation.js';
 import { listingValues, listingQuery, editableStatuses, withdrawableStatuses } from '../../lib/listings.js';
 export function register(app, { store, images, safe, auth, member, serialize, owned }) {
-  app.get('/api/health', (_req, res) => res.json({ status: 'ok', service: 'relive-api', storage: 'dynamodb', stage: 'auth-listings', features: ['auth', 'profile', 'listings', 'images', 'favourites'] }));
+  app.get('/api/health', (_req, res) => res.json({ status: 'ok', service: 'relive-api', storage: 'dynamodb', stage: 'commerce', features: ['auth', 'profile', 'listings', 'images', 'favourites', 'offers', 'wallet', 'purchases', 'transactions', 'reviews', 'dashboard'] }));
   app.post('/api/auth/register', async (req, res) => {
     const body = req.body || {};
     const values = profileValues(body);

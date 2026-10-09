@@ -1,3 +1,5 @@
+import { useCursorPage } from '../lib/useCursorPage';
+import PageControls from '../components/PageControls';
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
@@ -9,6 +11,7 @@ import Button from '../components/Button';
 
 export default function Offers({ direction }) {
   const { user } = useAuth();
+  const page = useCursorPage(direction);
   const [offers, setOffers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -20,10 +23,16 @@ export default function Offers({ direction }) {
     setIsLoading(true);
     setError('');
 
-    api('/offers?direction=' + direction)
+    api(
+      '/offers?direction=' +
+        direction +
+        '&limit=20' +
+        (page.cursor ? '&cursor=' + encodeURIComponent(page.cursor) : ''),
+    )
       .then((data) => {
         if (isActive) {
           setOffers(data.offers);
+          page.setNext(data.nextCursor);
         }
       })
       .catch((requestError) => {
@@ -40,7 +49,7 @@ export default function Offers({ direction }) {
     return () => {
       isActive = false;
     };
-  }, [direction, refreshCount]);
+  }, [direction, refreshCount, page.cursor]);
 
   return (
     <section className="page-section">
@@ -57,7 +66,10 @@ export default function Offers({ direction }) {
         <Button
           variant="secondary"
           disabled={isLoading}
-          onClick={() => setRefreshCount((count) => count + 1)}
+          onClick={() => {
+            page.reset();
+            setRefreshCount((count) => count + 1);
+          }}
         >
           Refresh
         </Button>
@@ -87,6 +99,7 @@ export default function Offers({ direction }) {
           ))}
         </div>
       )}
+      <PageControls page={page} disabled={isLoading} />
     </section>
   );
 }

@@ -18,10 +18,9 @@ export function createServiceApp({ registrars, services = Object.keys(registrars
     if (!registrars[service]) throw new Error(`Unknown service ${service}`);
     registrars[service](app, context);
   }
-  app.use(['/api/offers', '/api/wallet', '/api/purchases', '/api/transactions', '/api/reports', '/api/admin', '/api/dashboard'], (_req, res) => res.status(501).json({ error: 'This feature is not available in the cloud deployment yet.' }));
   app.use((_req, res) => res.status(404).json({ error: 'Route not found.' }));
   app.use((error, _req, res, _next) => {
-    const conditional = error.name === 'ConditionalCheckFailedException' || (error.name === 'TransactionCanceledException' && error.CancellationReasons?.some(reason => reason.Code === 'ConditionalCheckFailed'));
+    const conditional = ['ConditionalCheckFailedException', 'TransactionConflictException'].includes(error.name) || (error.name === 'TransactionCanceledException' && error.CancellationReasons?.some(reason => ['ConditionalCheckFailed', 'TransactionConflict'].includes(reason.Code)));
     const status = conditional ? 409 : error.status >= 400 && error.status < 500 ? error.status : 500;
     if (status >= 500) console.error(JSON.stringify({ event: 'request_failed', name: error.name, requestId: error.$metadata?.requestId }));
     res.status(status).json({ error: conditional ? 'The record changed or this email is already in use. Refresh and try again.' : status === 500 ? 'Something went wrong.' : error.message });

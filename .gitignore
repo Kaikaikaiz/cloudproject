@@ -7,3 +7,4 @@ dist/
 *.db-journal
 backend/uploads/*
 !backend/uploads/.gitkeep
+infrastructure/.domain-maintenance.json

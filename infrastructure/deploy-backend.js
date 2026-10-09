@@ -1,7 +1,9 @@
 import { services } from './services.js';
+import { tables, readMarker, verifyReady } from './lib/domain-data.js';
+import { assertFrozen } from './lib/domain-maintenance.js';
 import { readFile } from 'node:fs/promises';
 import { randomBytes } from 'node:crypto';
-import { LambdaClient, GetFunctionConfigurationCommand, CreateFunctionCommand, UpdateFunctionCodeCommand, UpdateFunctionConfigurationCommand, CreateEventSourceMappingCommand, ListEventSourceMappingsCommand, waitUntilFunctionActiveV2, waitUntilFunctionUpdatedV2 } from '@aws-sdk/client-lambda';
+import { LambdaClient, GetFunctionConfigurationCommand, CreateFunctionCommand, UpdateFunctionCodeCommand, UpdateFunctionConfigurationCommand, CreateEventSourceMappingCommand, ListEventSourceMappingsCommand, PutFunctionConcurrencyCommand, waitUntilFunctionActiveV2, waitUntilFunctionUpdatedV2 } from '@aws-sdk/client-lambda';
 import { DynamoDBClient, DescribeTableCommand } from '@aws-sdk/client-dynamodb';
 import { IAMClient, GetRoleCommand } from '@aws-sdk/client-iam';
 import { S3Client, PutBucketCorsCommand } from '@aws-sdk/client-s3';
@@ -10,6 +12,14 @@ export const origin = process.env.FRONTEND_ORIGIN || 'http://relive-web-cloudpro
 try {
   if (!process.argv.includes('--apply')) throw new Error('Deployment requires explicit --apply. No AWS changes made.');
   await verifyAccount();
+  const database = new DynamoDBClient({ region });
+  const marker = await readMarker(database);
+  const cutover = marker?.phase?.S !== 'CUTOVER';
+  if (cutover) {
+    if (!process.argv.includes('--domain-cutover')) throw new Error('First domain deployment requires --domain-cutover, maintenance, and verified data migration.');
+    await assertFrozen();
+    await verifyReady(database);
+  }
   const client = new LambdaClient({ region });
   async function config(name) {
     try { return await client.send(new GetFunctionConfigurationCommand({ FunctionName: name })); }
@@ -30,6 +40,8 @@ try {
   if (!Role.startsWith(`arn:aws:iam::${expectedAccount}:role/`)) throw new Error('Execution role belongs to another account.');
   const Environment = { Variables: { ...seed, ...previous?.Environment?.Variables,
     USERS_TABLE: 'relive-users', LISTINGS_TABLE: 'relive-listings', IMAGES_BUCKET: 'relive-images-cloudproject',
+    ...Object.fromEntries(Object.entries(tables).map(([name, value]) => [`${name.toUpperCase()}_TABLE`, value])),
+    STORAGE_SCHEMA: 'domain-v2', REPORTS_TABLE: 'relive-reports',
     NODE_ENV: 'production', ALLOWED_ORIGINS: origin,
     JWT_SECRET: secret,
   } };
@@ -42,6 +54,7 @@ try {
   } else {
     await client.send(new CreateFunctionCommand({ FunctionName, Role, Runtime: 'nodejs22.x', Handler: 'index.handler', Code: { ZipFile }, Environment, MemorySize: 512, Timeout: 20 }));
     await waitUntilFunctionActiveV2({ client, maxWaitTime: 300 }, { FunctionName });
+    if (cutover) await client.send(new PutFunctionConcurrencyCommand({ FunctionName, ReservedConcurrentExecutions: 0 }));
   }
   console.log(`Deployed ${FunctionName}`);
   }

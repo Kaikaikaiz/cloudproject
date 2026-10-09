@@ -34,5 +34,5 @@ test('Lambda proxy auth, owner checks, stale edits, soft deletion and token revo
  assert.equal((await req('POST','/auth/logout',{},token)).status,200);
  assert.equal((await req('GET','/auth/me',null,token)).status,401);
  assert.equal((await req('OPTIONS','/listings')).status,204);
- assert.equal((await req('GET','/wallet')).status,501);
+ assert.equal((await req('GET','/wallet')).status,401);
 });

@@ -44,6 +44,8 @@ export async function api(path, options = {}) {
     throw error;
   }
   if (options.method && !['GET', 'HEAD'].includes(options.method.toUpperCase()))
+    window.dispatchEvent(new CustomEvent('relive:data-changed', { detail: { path } }));
+  if (options.method && !['GET', 'HEAD'].includes(options.method.toUpperCase()))
     window.dispatchEvent(new CustomEvent('relive:toast', { detail: { message: data.message || 'Saved successfully.' } }));
   return data;
 }

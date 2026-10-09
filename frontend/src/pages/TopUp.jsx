@@ -1,3 +1,4 @@
+import { requestKey as newRequestKey } from '../lib/requestKey';
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api';
@@ -12,18 +13,18 @@ export default function TopUp() {
   const returnTo = checkoutReturnPath(searchParams.get('returnTo'));
   const [amount, setAmount] = useState('');
   const [method, setMethod] = useState('FPX');
-  const [requestKey, setRequestKey] = useState(() => crypto.randomUUID());
+  const [requestKey, setRequestKey] = useState(() => newRequestKey());
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
   function handleAmountChange(event) {
     setAmount(event.target.value);
-    setRequestKey(crypto.randomUUID());
+    setRequestKey(newRequestKey());
   }
 
   function handleMethodChange(event) {
     setMethod(event.target.value);
-    setRequestKey(crypto.randomUUID());
+    setRequestKey(newRequestKey());
   }
 
   async function handleSubmit(event) {

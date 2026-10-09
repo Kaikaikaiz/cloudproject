@@ -1,10 +1,11 @@
+import { requestKey as newRequestKey } from '../lib/requestKey';
 import { useEffect, useState } from 'react';
 
 export default function ToastRegion() {
   const [toasts, setToasts] = useState([]);
   useEffect(() => {
     const add = (event) => {
-      const toast = { id: crypto.randomUUID(), message: event.detail?.message || 'Saved.' };
+      const toast = { id: newRequestKey(), message: event.detail?.message || 'Saved.' };
       setToasts((current) => [...current, toast]);
       window.setTimeout(() => setToasts((current) => current.filter((item) => item.id !== toast.id)), 4000);
     };

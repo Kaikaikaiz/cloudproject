@@ -6,8 +6,9 @@ import Button from '../components/Button';
 import LoadingState from '../components/LoadingState';
 import Reputation from '../components/Reputation';
 
-export default function PublicProfile() {
-  const { id } = useParams();
+export default function PublicProfile({ userId, embedded = false }) {
+  const { id: routeId } = useParams();
+  const id = userId || routeId;
   const [data, setData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -47,39 +48,48 @@ export default function PublicProfile() {
   const { user, reviews } = data;
 
   return (
-    <section className="page-section public-profile">
-      <div className="page-heading">
-        <div>
-          <span className="eyebrow muted">THE RELIVE COMMUNITY</span>
-          <h1>{user.name}</h1>
-        </div>
-      </div>
-      <div className="surface profile-surface">
-        <div className="profile-top">
-          <div className="profile-photo">
-            {user.profileImage ? (
-              <img src={imageUrl(user.profileImage)} alt={user.name} />
-            ) : (
-              <UserRound size={50} />
-            )}
+    <section
+      className={
+        embedded ? 'public-profile profile-embedded' : 'page-section public-profile'
+      }
+    >
+      {!embedded && (
+        <>
+          <div className="page-heading">
+            <div>
+              <span className="eyebrow muted">THE RELIVE COMMUNITY</span>
+              <h1>{user.name}</h1>
+            </div>
           </div>
-          <div className="profile-identity">
-            <h2>{user.name}</h2>
-            <p>
-              {[user.city, user.state].filter(Boolean).join(', ') || 'Location not added'}
-            </p>
-            <small>
-              Member since{' '}
-              {new Date(user.createdAt).toLocaleDateString('en-MY', {
-                month: 'long',
-                year: 'numeric',
-              })}
-            </small>
+          <div className="surface profile-surface">
+            <div className="profile-top">
+              <div className="profile-photo">
+                {user.profileImage ? (
+                  <img src={imageUrl(user.profileImage)} alt={user.name} />
+                ) : (
+                  <UserRound size={50} />
+                )}
+              </div>
+              <div className="profile-identity">
+                <h2>{user.name}</h2>
+                <p>
+                  {[user.city, user.state].filter(Boolean).join(', ') ||
+                    'Location not added'}
+                </p>
+                <small>
+                  Member since{' '}
+                  {new Date(user.createdAt).toLocaleDateString('en-MY', {
+                    month: 'long',
+                    year: 'numeric',
+                  })}
+                </small>
+              </div>
+            </div>
+            <Reputation user={user} />
           </div>
-        </div>
-        <Reputation user={user} />
-      </div>
-      <section className="surface public-reviews">
+        </>
+      )}
+      <section className={embedded ? 'public-reviews' : 'surface public-reviews'}>
         <h2>Community reviews</h2>
         <p>Reviews from completed transactions.</p>
         {reviews.length === 0 && (

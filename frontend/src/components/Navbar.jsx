@@ -1,18 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link, NavLink } from 'react-router-dom';
-import { ArrowUpRight, Bell, Menu, X, Heart, UserRound } from 'lucide-react';
+import { Bell, Menu, X, Heart, UserRound, Wallet } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { api } from '../lib/api';
-import ThemeToggle from './ThemeToggle';
+import { imageUrl } from '../lib/api';
+import { rm } from '../lib/listings';
 const links = [
   ['/', 'Marketplace'],
   ['/dashboard', 'Dashboard'],
   ['/sell', 'Sell'],
   ['/my-offers', 'My Offers'],
   ['/my-listings', 'My Listings'],
-  ['/wallet', 'Wallet'],
   ['/favourites', 'Favourites'],
-  ['/profile', 'Profile'],
 ];
 export function Logo() {
   return (
@@ -27,20 +25,12 @@ export function Logo() {
 }
 export default function Navbar() {
   const [open, setOpen] = useState(false);
-  const [unread, setUnread] = useState(0);
-  const { user } = useAuth();
+  const { user, unread, walletBalance } = useAuth();
   const isAdmin = user?.role === 'ADMIN';
-  useEffect(() => {
-    if (!user || isAdmin) { setUnread(0); return; }
-    let active = true;
-    api('/dashboard').then((data) => active && setUnread(data.unreadNotifications)).catch(() => {});
-    return () => { active = false; };
-  }, [user?.id, isAdmin]);
   const visibleLinks = isAdmin
     ? [
         ['/', 'Marketplace'],
         ['/admin', 'Reports'],
-        ['/profile', 'Profile'],
       ]
     : links;
   return (
@@ -64,17 +54,23 @@ export default function Navbar() {
           {visibleLinks.map(([to, label]) => (
             <NavLink key={to} end={to === '/'} to={to} onClick={() => setOpen(false)}>
               {label === 'Favourites' && <Heart size={15} />}{' '}
-              {label === 'Dashboard' && <span className="nav-notification"><Bell size={15} />{unread > 0 && <i aria-label={unread + ' unread notifications'}>{unread > 9 ? '9+' : unread}</i>}</span>}{' '}
-              {label === 'Profile' && <UserRound size={15} />} {label}
+              {label === 'Dashboard' && <span className="nav-notification"><Bell size={15} />{unread > 0 && <i className="notification-dot" role="status" aria-label="Unread notifications" />}</span>}{' '}
+              {label}
             </NavLink>
           ))}
         </nav>
-        <ThemeToggle />
-        {!isAdmin && (
-          <Link className="nav-sell" to="/sell">
-            Sell an item <ArrowUpRight size={17} />
-          </Link>
-        )}
+        <div className="nav-account">
+          {user ? <>
+            {!isAdmin && <NavLink to="/wallet" className="nav-wallet" title="View wallet & transactions" onClick={() => setOpen(false)}>
+              <Wallet size={17} aria-hidden="true" />
+              <span>{walletBalance === null ? 'RM —' : rm(walletBalance)}</span>
+            </NavLink>}
+            <NavLink to="/profile" className="nav-profile" title="Manage Profile" onClick={() => setOpen(false)}>
+              {user.profileImage ? <img className="nav-avatar" src={imageUrl(user.profileImage)} alt="" /> : <UserRound size={17} aria-hidden="true" />}
+              <span>{user.name}</span>
+            </NavLink>
+          </> : <NavLink to="/login" onClick={() => setOpen(false)}>Log in</NavLink>}
+        </div>
       </div>
     </header>
   );
