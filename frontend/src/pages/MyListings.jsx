@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api } from '../lib/api';
+import { api, CLOUD_MODE } from '../lib/api';
 import { editableStatuses, withdrawableStatuses, statusLabel } from '../lib/listings';
 import ListingCard from '../components/ListingCard';
 import Button from '../components/Button';
@@ -34,7 +34,7 @@ export default function MyListings() {
     setBusy(true);
     setError('');
     try {
-      await api('/listings/' + selected.id + '/withdraw', { method: 'POST' });
+      await api('/listings/' + selected.id + (CLOUD_MODE ? '' : '/withdraw'), { method: CLOUD_MODE ? 'DELETE' : 'POST' });
       setListings((current) =>
         current.map((item) =>
           item.id === selected.id ? { ...item, status: 'WITHDRAWN' } : item,

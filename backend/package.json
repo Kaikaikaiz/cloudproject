@@ -19,6 +19,12 @@
     "format:check": "prettier --check src scripts test prisma/seed.js package.json"
   },
   "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.1148.0",
+    "@aws-sdk/client-s3": "^3.1148.0",
+    "@aws-sdk/lib-dynamodb": "^3.1148.0",
+    "@aws-sdk/s3-presigned-post": "^3.1148.0",
+    "@aws-sdk/s3-request-presigner": "^3.1148.0",
+    "@codegenie/serverless-express": "^5.0.0",
     "@prisma/client": "6.19.0",
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",

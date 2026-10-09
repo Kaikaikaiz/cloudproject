@@ -3,6 +3,7 @@ export const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:4000/a
   /\/$/,
   '',
 );
+export const CLOUD_MODE = import.meta.env.VITE_CLOUD_MODE === 'true';
 export const imageUrl = (path) => (path ? new URL(path, API_URL).href : null);
 const sessionToken = () => window.sessionStorage.getItem('relive_session_token');
 export function setSessionToken(token) {
@@ -14,9 +15,10 @@ export async function api(path, options = {}) {
   try {
     response = await fetch(API_URL + path, {
       ...options,
-      credentials: 'include',
+      credentials: CLOUD_MODE ? 'omit' : 'include',
       headers: {
         'Content-Type': 'application/json',
+        ...(import.meta.env.VITE_API_KEY ? { 'X-Api-Key': import.meta.env.VITE_API_KEY } : {}),
         ...(sessionToken() ? { Authorization: 'Bearer ' + sessionToken() } : {}),
         ...options.headers,
       },
@@ -44,4 +46,16 @@ export async function api(path, options = {}) {
   if (options.method && !['GET', 'HEAD'].includes(options.method.toUpperCase()))
     window.dispatchEvent(new CustomEvent('relive:toast', { detail: { message: data.message || 'Saved successfully.' } }));
   return data;
+}
+
+export async function uploadCloudImage(dataUrl, purpose = 'listing') {
+  if (!CLOUD_MODE) return dataUrl;
+  const blob = await (await fetch(dataUrl)).blob();
+  const upload = await api('/uploads', { method: 'POST', body: { contentType: blob.type, size: blob.size, purpose } });
+  const form = new FormData();
+  for (const [key, value] of Object.entries(upload.fields)) form.append(key, value);
+  form.append('file', blob);
+  const result = await fetch(upload.url, { method: 'POST', body: form });
+  if (!result.ok) throw new Error('Image upload failed. Please try again.');
+  return upload.reference;
 }

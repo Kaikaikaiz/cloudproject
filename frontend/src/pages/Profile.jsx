@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { MapPin, UserRound } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { api, imageUrl } from '../lib/api';
+import { api, imageUrl, uploadCloudImage } from '../lib/api';
 import { readImageFile } from '../lib/readImageFile';
 import Button from '../components/Button';
 import Input from '../components/Input';
@@ -77,7 +77,7 @@ export default function Profile() {
     setBusy(true);
     try {
       const image = await readImageFile(file);
-      const data = await api('/profile/image', { method: 'PUT', body: { image } });
+      const data = await api('/profile/image', { method: 'PUT', body: { image: await uploadCloudImage(image, 'profile') } });
       setUser(data.user);
       setNotice('Your profile image has been updated.');
     } catch (err) {

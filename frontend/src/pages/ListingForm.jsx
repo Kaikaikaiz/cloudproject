@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { api } from '../lib/api';
+import { api, CLOUD_MODE, uploadCloudImage } from '../lib/api';
 import { readImageFile } from '../lib/readImageFile';
 import ListingPhotoPicker from '../components/ListingPhotoPicker';
 import { useAuth } from '../context/AuthContext';
@@ -25,6 +25,7 @@ export default function ListingForm() {
     city: user.city || '',
   });
   const [images, setImages] = useState([]);
+  const [imageKeys, setImageKeys] = useState({});
   const [listingUpdatedAt, setListingUpdatedAt] = useState('');
   const [needsRevision, setNeedsRevision] = useState(false);
   const [moderationReason, setModerationReason] = useState('');
@@ -61,6 +62,7 @@ export default function ListingForm() {
           ),
         );
         setImages(listing.images.map((image) => image.url));
+        setImageKeys(Object.fromEntries(listing.images.map(image => [image.url, image.key || image.url])));
         setListingUpdatedAt(listing.updatedAt);
         setNeedsRevision(listing.status === 'NEEDS_REVISION');
         setModerationReason(listing.moderationReason || '');
@@ -122,9 +124,10 @@ export default function ListingForm() {
       return;
     }
     try {
+      const submittedImages = CLOUD_MODE ? await Promise.all(images.map(image => image.startsWith('data:') ? uploadCloudImage(image) : imageKeys[image])) : images;
       const { listing } = await api('/listings' + (id ? '/' + id : ''), {
-        method: id ? 'PATCH' : 'POST',
-        body: { ...values, images, ...(id ? { updatedAt: listingUpdatedAt } : {}) },
+        method: id ? (CLOUD_MODE ? 'PUT' : 'PATCH') : 'POST',
+        body: { ...values, images: submittedImages, ...(id ? { updatedAt: listingUpdatedAt } : {}) },
       });
       navigate('/listing/' + listing.id, {
         replace: true,
