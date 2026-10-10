@@ -24,16 +24,31 @@ export function register(app, { store, images, safe, auth, member, serialize, ow
     });
     res.json({ listings: await Promise.all(rows.slice(skip, skip + take).map(serialize)), total: rows.length, page, pages: Math.ceil(rows.length / take) });
   });
+
   app.get('/api/listings/mine', auth, async (req, res) => res.json({ listings: await Promise.all((await store.listings(req.user.id)).filter(item => item.id).map(serialize)) }));
+  
   app.post('/api/listings', auth, member, async (req, res) => {
     const values = listingValues(req.body || {});
     const refs = await images.finalize(req.user.id, req.body.images || []);
     const id = randomUUID(), now = new Date().toISOString();
-    const item = { ...values, id, sellerId: req.user.id, images: refs, status: 'ACTIVE', version: 0, createdAt: now, updatedAt: now,
-      sellerPK: `USER#${req.user.id}`, sellerSK: `${now}#${id}`, statusPK: 'STATUS#ACTIVE', statusSK: `${now}#${id}` };
+    const item = { 
+      ...values, 
+      id, 
+      sellerId: req.user.id, 
+      images: refs, 
+      status: 'ACTIVE', 
+      version: 0, 
+      createdAt: now, 
+      updatedAt: now, 
+      sellerPK: `USER#${req.user.id}`, 
+      sellerSK: `${now}#${id}`, 
+      statusPK: 'STATUS#ACTIVE', 
+      statusSK: `${now}#${id}` 
+    };
     await store.saveListing(item);
     res.status(201).json({ listing: await serialize(item) });
   });
+
   app.get('/api/listings/:id', async (req, res, next) => {
     const listing = await store.listing(req.params.id);
     if (!listing || !listing.id) fail('Listing not found.', 404);
@@ -43,6 +58,7 @@ export function register(app, { store, images, safe, auth, member, serialize, ow
     }
     res.json({ listing: await serialize(listing) });
   });
+  
   const update = async (req, res) => {
     const old = await owned(req);
     if (!editableStatuses.includes(old.status)) fail('This listing cannot be edited.', 409);
@@ -55,8 +71,11 @@ export function register(app, { store, images, safe, auth, member, serialize, ow
     await store.saveListing(next, old);
     res.json({ listing: await serialize(next) });
   };
+
   app.put('/api/listings/:id', auth, member, update);
+
   app.patch('/api/listings/:id', auth, member, update);
+
   const withdraw = async (req, res) => {
     const old = await owned(req);
     if (!withdrawableStatuses.includes(old.status)) fail('This listing cannot be withdrawn.', 409);
@@ -64,6 +83,8 @@ export function register(app, { store, images, safe, auth, member, serialize, ow
       updatedAt: new Date(Math.max(Date.now(), Date.parse(old.updatedAt) + 1)).toISOString() }, old);
     res.json({ message: 'Listing withdrawn.' });
   };
+
   app.delete('/api/listings/:id', auth, member, withdraw);
+
   app.post('/api/listings/:id/withdraw', auth, member, withdraw);
 }

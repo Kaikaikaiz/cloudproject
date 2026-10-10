@@ -10,8 +10,17 @@ export function createHandler(app, { streamProcessor } = {}) {
       return streamProcessor(event, context);
     }
     const started = Date.now();
-    const response = await proxy(normalizeGatewayEvent(event), context);
-    console.log(JSON.stringify({ event: 'http_request', requestId: context.awsRequestId, method: event.httpMethod, path: event.resource, status: response.statusCode, durationMs: Date.now() - started }));
+    const response = await proxy(
+      normalizeGatewayEvent(event), 
+      context);
+    console.log(JSON.stringify({ 
+      event: 'http_request', 
+      requestId: context.awsRequestId, 
+      method: event.httpMethod, 
+      path: event.resource, 
+      status: response.statusCode, 
+      durationMs: Date.now() - started 
+    }));
     return response;
   };
 }

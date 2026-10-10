@@ -10,11 +10,20 @@ async function processStream(event, context) {
   for (const record of event.Records || []) {
     if (record.eventName === 'INSERT' || record.eventName === 'MODIFY' || record.eventName === 'REMOVE') {
       processed += 1;
-      console.log(JSON.stringify({ event: 'listing_stream_record', eventName: record.eventName, keys: record.dynamodb?.Keys, requestId: context.awsRequestId }));
+      console.log(JSON.stringify({ 
+        event: 'listing_stream_record', 
+        eventName: record.eventName, 
+        keys: record.dynamodb?.Keys, 
+        requestId: context.awsRequestId }));
     }
   }
-  console.log(JSON.stringify({ event: 'listing_stream_batch', processed, requestId: context.awsRequestId }));
+  console.log(JSON.stringify({ 
+    event: 'listing_stream_batch', 
+    processed, 
+    requestId: context.awsRequestId }));
   return { batchItemFailures: [] };
 }
 
-export const handler = createHandler(createServiceApp({ registrars: { listings: register } }), { streamProcessor: processStream });
+export const handler = createHandler(createServiceApp(
+  { registrars: { listings: register } }), 
+  { streamProcessor: processStream });

@@ -66,7 +66,15 @@ try {
   const streamLabel = table.Table.LatestStreamArn;
   const mappings = await client.send(new ListEventSourceMappingsCommand({ EventSourceArn: streamLabel, FunctionName: 'relive-listings' }));
   if (!mappings.EventSourceMappings?.some(item => item.State !== 'Deleting')) {
-    await client.send(new CreateEventSourceMappingCommand({ EventSourceArn: streamLabel, FunctionName: 'relive-listings', StartingPosition: 'LATEST', BatchSize: 10, BisectBatchOnFunctionError: true, FunctionResponseTypes: ['ReportBatchItemFailures'], Enabled: true }));
+    await client.send(new CreateEventSourceMappingCommand({ 
+      EventSourceArn: streamLabel, 
+      FunctionName: 'relive-listings', 
+      StartingPosition: 'LATEST', 
+      BatchSize: 10, 
+      BisectBatchOnFunctionError: true, 
+      FunctionResponseTypes: ['ReportBatchItemFailures'], 
+      Enabled: true 
+    }));
     console.log('Created DynamoDB Streams mapping for relive-listings.');
   } else console.log('DynamoDB Streams mapping for relive-listings already exists.');
   await new S3Client({ region }).send(new PutBucketCorsCommand({ Bucket: 'relive-images-cloudproject', ExpectedBucketOwner: expectedAccount,
