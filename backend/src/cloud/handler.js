@@ -24,3 +24,4 @@ export function createHandler(app, { streamProcessor } = {}) {
     return response;
   };
 }
+

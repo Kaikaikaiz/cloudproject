@@ -23,7 +23,9 @@ export function createServiceApp({ registrars, services = Object.keys(registrars
   }
   app.use((_req, res) => res.status(404).json({ error: 'Route not found.' }));
   app.use((error, _req, res, _next) => {
-    const conditional = ['ConditionalCheckFailedException', 'TransactionConflictException'].includes(error.name) || (error.name === 'TransactionCanceledException' && error.CancellationReasons?.some(reason => ['ConditionalCheckFailed', 'TransactionConflict'].includes(reason.Code)));
+    const conditional = [
+      'ConditionalCheckFailedException', 'TransactionConflictException'].includes(error.name) || 
+      (error.name === 'TransactionCanceledException' && error.CancellationReasons?.some(reason => ['ConditionalCheckFailed', 'TransactionConflict'].includes(reason.Code)));
     const status = conditional ? 409 : error.status >= 400 && error.status < 500 ? error.status : 500;
     if (status >= 500){
       console.error(JSON.stringify({ 
@@ -32,7 +34,8 @@ export function createServiceApp({ registrars, services = Object.keys(registrars
         requestId: error.$metadata?.requestId 
       }));
     }
-    res.status(status).json({ error: conditional ? 'The record changed or this email is already in use. Refresh and try again.' : status === 500 ? 'Something went wrong.' : error.message });
+    res.status(status).json({ 
+      error: conditional ? 'The record changed or this email is already in use. Refresh and try again.' : status === 500 ? 'Something went wrong.' : error.message });
   });
   return app;
 }
