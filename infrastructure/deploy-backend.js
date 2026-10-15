@@ -3,6 +3,7 @@ import { tables, readMarker, verifyReady } from './lib/domain-data.js';
 import { assertFrozen } from './lib/domain-maintenance.js';
 import { readFile } from 'node:fs/promises';
 import { randomBytes } from 'node:crypto';
+import { parseEnv } from 'node:util';
 import { LambdaClient, GetFunctionConfigurationCommand, CreateFunctionCommand, UpdateFunctionCodeCommand, UpdateFunctionConfigurationCommand, CreateEventSourceMappingCommand, ListEventSourceMappingsCommand, PutFunctionConcurrencyCommand, waitUntilFunctionActiveV2, waitUntilFunctionUpdatedV2 } from '@aws-sdk/client-lambda';
 import { DynamoDBClient, DescribeTableCommand } from '@aws-sdk/client-dynamodb';
 import { IAMClient, GetRoleCommand } from '@aws-sdk/client-iam';
@@ -11,6 +12,16 @@ import { region, expectedAccount, verifyAccount, reportError } from './config.js
 export const origin = process.env.FRONTEND_ORIGIN || 'http://relive-web-cloudproject.s3-website-us-east-1.amazonaws.com';
 try {
   if (!process.argv.includes('--apply')) throw new Error('Deployment requires explicit --apply. No AWS changes made.');
+  const mailKeys = ['SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASSWORD', 'MAIL_FROM'];
+  let mail = {};
+  if (process.argv.includes('--mail-env')) {
+    const values = parseEnv(await readFile(new URL('../backend/.env.mail.local', import.meta.url), 'utf8'));
+    for (const key of mailKeys) {
+      if (!values[key]?.trim()) throw new Error(`Fill ${key} in backend/.env.mail.local before deploying.`);
+      mail[key] = values[key].trim();
+    }
+    if (!['465', '587'].includes(mail.SMTP_PORT)) throw new Error('SMTP_PORT must be 465 or 587.');
+  }
   await verifyAccount();
   const database = new DynamoDBClient({ region });
   const marker = await readMarker(database);
@@ -45,6 +56,9 @@ try {
     NODE_ENV: 'production', ALLOWED_ORIGINS: origin,
     JWT_SECRET: secret,
   } };
+  // The auth environment seeds shared JWT settings, but mail credentials are auth-only.
+  if (service === 'auth') Object.assign(Environment.Variables, mail);
+  else for (const key of mailKeys) delete Environment.Variables[key];
   const ZipFile = packages[index];
   if (previous) {
     await client.send(new UpdateFunctionCodeCommand({ FunctionName, ZipFile }));
