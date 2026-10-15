@@ -1,3 +1,4 @@
+import { useSuccessMessage } from '../lib/useSuccessMessage';
 import PublicProfile from './PublicProfile';
 import Transactions from './Transactions';
 import { useEffect, useState } from 'react';
@@ -20,7 +21,7 @@ export default function Profile() {
   const [values, setValues] = useState({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
+  const [notice, setNotice] = useSuccessMessage();
   useEffect(() => {
     let isActive = true;
     api('/auth/me')

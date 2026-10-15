@@ -1,3 +1,4 @@
+import { useSuccessMessage } from '../lib/useSuccessMessage';
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api } from '../lib/api';
@@ -15,7 +16,7 @@ export default function TransactionDetails() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [refreshCount, setRefreshCount] = useState(0);
-  const [notice, setNotice] = useState('');
+  const [notice, setNotice] = useSuccessMessage();
 
   useEffect(() => {
     let isActive = true;

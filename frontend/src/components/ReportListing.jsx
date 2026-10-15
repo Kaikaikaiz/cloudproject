@@ -1,3 +1,4 @@
+import { useSuccessMessage } from '../lib/useSuccessMessage';
 import { useState } from 'react';
 import { api } from '../lib/api';
 import Button from './Button';
@@ -20,6 +21,7 @@ export default function ReportListing({ listingId }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const [notice, setNotice] = useSuccessMessage();
 
   async function submit(event) {
     event.preventDefault();
@@ -28,6 +30,7 @@ export default function ReportListing({ listingId }) {
     try {
       await api('/reports', { method: 'POST', body: { listingId, reason, description } });
       setSubmitted(true);
+      setNotice('Report submitted. The administrator will review it.');
       setOpen(false);
     } catch (requestError) {
       setError(requestError.message);
@@ -38,11 +41,10 @@ export default function ReportListing({ listingId }) {
 
   return (
     <>
-      {submitted ? (
-        <p className="form-message success-message" role="status">
-          Report submitted. The administrator will review it.
-        </p>
-      ) : (
+      {notice && (
+        <p className="form-message success-message" role="status">{notice}</p>
+      )}
+      {!submitted && (
         <Button variant="ghost" onClick={() => setOpen(true)}>
           Report listing
         </Button>

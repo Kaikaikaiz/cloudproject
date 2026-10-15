@@ -1,3 +1,4 @@
+import { useSuccessMessage } from '../lib/useSuccessMessage';
 import { useEffect, useState } from 'react';
 import { Link, useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, Heart, MapPin } from 'lucide-react';
@@ -19,6 +20,14 @@ export default function ListingDetails() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const [notice, setNotice] = useSuccessMessage();
+  useEffect(() => {
+    if (!location.state?.notice) return;
+    setNotice(location.state.notice);
+    const { notice: consumedNotice, ...state } = location.state;
+    // Consume the navigation message so refreshing/back navigation cannot replay it.
+    navigate(location.pathname + location.search + location.hash, { replace: true, state });
+  }, [location, navigate, setNotice]);
   const [listing, setListing] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -114,9 +123,9 @@ export default function ListingDetails() {
       <Link className="back-link" to="/">
         <ArrowLeft size={16} /> Back to the marketplace
       </Link>
-      {location.state?.notice && (
+      {notice && (
         <p className="form-message success-message listing-notice" role="status">
-          {location.state.notice}
+          {notice}
         </p>
       )}
       <div className="detail-grid live-detail-grid">

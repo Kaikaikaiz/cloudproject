@@ -1,3 +1,4 @@
+import { useSuccessMessage } from '../lib/useSuccessMessage';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
@@ -8,7 +9,7 @@ export default function ForgotPassword() {
   const [email, setEmail] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useSuccessMessage();
   async function submit(e) {
     e.preventDefault();
     setBusy(true);

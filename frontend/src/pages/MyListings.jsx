@@ -1,3 +1,4 @@
+import { useSuccessMessage } from '../lib/useSuccessMessage';
 import { useEffect, useState } from 'react';
 import { api, CLOUD_MODE } from '../lib/api';
 import { editableStatuses, withdrawableStatuses, statusLabel } from '../lib/listings';
@@ -14,7 +15,7 @@ export default function MyListings() {
   const [error, setError] = useState('');
   const [selected, setSelected] = useState(null);
   const [busy, setBusy] = useState(false);
-  const [notice, setNotice] = useState('');
+  const [notice, setNotice] = useSuccessMessage();
   async function load() {
     setLoading(true);
     setError('');
