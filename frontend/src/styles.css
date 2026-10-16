@@ -1815,7 +1815,7 @@ small {
   color: #7b619e;
   text-decoration: underline;
 }
-.toast-region { position: fixed; right: 20px; bottom: 20px; z-index: 30; display: grid; gap: 8px; max-width: min(360px, calc(100vw - 40px)); }
+.toast-region { position: fixed; top: calc(20px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); z-index: 30; display: grid; gap: 8px; width: min(360px, calc(100vw - 40px)); pointer-events: none; }
 .toast { margin: 0; padding: 13px 16px; border-radius: 12px; background: #4e3e5a; color: #fff; box-shadow: 0 10px 30px #3c274433; font-size: 13px; }
 .nav-notification { display: inline-grid; position: relative; }.nav-notification i { position: absolute; top: -9px; right: -12px; min-width: 15px; height: 15px; padding: 0 3px; border-radius: 10px; background: #d97983; color: white; font: 9px/15px inherit; font-style: normal; text-align: center; }
 .dashboard-wallet { display: flex; align-items: center; gap: 15px; padding: 20px 24px; margin: 22px 0; background: #edf8f2; }

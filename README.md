@@ -1,7 +1,466 @@
 # reLIVE
-**Give it another life.**
 
-A localhost second-hand marketplace with a clean pastel interface, account authentication, profiles, real listings, search and filters, seller management, favourites, price negotiations, and a simulated wallet checkout.
+**Give it another life.** A second-hand marketplace with listings, favourites,
+negotiation, simulated wallet payments, reviews and administrator moderation.
+
+The project supports two backends: the original local Express/SQLite application
+and an AWS deployment using S3, API Gateway, nine Lambda services and DynamoDB.
+The instructions below document the current AWS scripts. The original local
+setup and implementation notes are retained later in this file.
+
+## AWS deployment flow
+
+```text
+S3 website → Browser → API Gateway /v1/api → Service Lambda → DynamoDB
+                        Browser ↔ private S3 images (presigned requests)
+relive-listings DynamoDB Stream → relive-listings Lambda → CloudWatch logs
+```
+
+The browser sends API requests; S3 does not invoke API Gateway. No CloudFront is
+required by these scripts. The S3 website endpoint is HTTP, not HTTPS, and this
+coursework setup is not suitable for production authentication over an untrusted
+network. Payments are simulated. Forgot Password remains visible but its cloud
+endpoint returns 501; email-based recovery is not implemented.
+
+### 1. Prerequisites and credentials
+
+- Node.js **22.12+**, npm and AWS CLI v2.
+- An active AWS Academy Learner Lab session and its three temporary credential
+  values: access key, secret key and session token.
+- This project's scripts verify account **615663614353** and use **us-east-1**.
+  They are not generic multi-account provisioning tools. Review account, bucket
+  and table constants before adapting them to another environment.
+
+Run commands on your Mac or lab IDE. Start from the project root unless a section
+specifies otherwise. Install each project's locked dependencies:
+
+```bash
+npm ci --prefix backend
+npm ci --prefix frontend
+npm ci --prefix infrastructure
+```
+
+Configure a dedicated CLI profile:
+
+```bash
+aws configure --profile learnerlab
+export AWS_PROFILE=learnerlab
+export AWS_DEFAULT_REGION=us-east-1
+```
+
+Enter the region and JSON output when prompted. If your CLI does not prompt for
+the session token, edit `~/.aws/credentials` and add `aws_session_token` under the
+same `[learnerlab]` profile. All three credentials must come from the same current
+lab session. Keep credentials outside this repository. Protect the file and verify:
+
+```bash
+chmod 600 ~/.aws/credentials
+aws sts get-caller-identity --no-cli-pager
+```
+
+If you already use a working default profile, keep it instead of introducing a
+second one. Stale exported `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and
+`AWS_SESSION_TOKEN` values can override profile credentials. Never paste credentials
+into screenshots, source files or the report.
+
+### 2. S3 buckets and website hosting
+
+The deployment expects these existing buckets:
+
+| Bucket | Purpose | Access |
+| --- | --- | --- |
+| `relive-web-cloudproject` | Compiled frontend only | Public read for website assets |
+| `relive-images-cloudproject` | Listing/profile images | Private, presigned upload/download |
+
+Only if a bucket does not already exist, create it in us-east-1:
+
+```bash
+aws s3api create-bucket --bucket relive-web-cloudproject --region us-east-1
+aws s3api create-bucket --bucket relive-images-cloudproject --region us-east-1
+```
+
+Names must be available globally and match the scripts. Do not create replacements
+for existing buckets. In **S3 → website bucket → Properties → Static website
+hosting**, enable hosting with `index.html` as both index and error document.
+The error document permits client routes to render, but S3 can still return an
+error HTTP status for a directly requested client route.
+
+Equivalent website configuration:
+
+```bash
+aws s3api put-bucket-website \
+  --bucket relive-web-cloudproject \
+  --website-configuration '{"IndexDocument":{"Suffix":"index.html"},"ErrorDocument":{"Key":"index.html"}}' \
+  --region us-east-1
+```
+
+For the **website bucket only**, keep the two ACL public-access blocks enabled
+and disable the two policy blocks if the lab allows public website hosting.
+Account-level restrictions also apply. Add this bucket policy in the console:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [{
+    "Sid": "PublicWebsiteRead",
+    "Effect": "Allow",
+    "Principal": "*",
+    "Action": "s3:GetObject",
+    "Resource": "arn:aws:s3:::relive-web-cloudproject/*"
+  }]
+}
+```
+
+Keep **all public access blocked on the images bucket**. Use default SSE-S3
+encryption. Optional S3 versioning can preserve overwritten objects; it is separate
+from DynamoDB PITR. Do not upload `.env`, source code or credentials to the web bucket.
+The backend deployment configures image-bucket POST CORS for the frontend origin.
+Website-bucket CORS is not needed simply to navigate to the website.
+
+### 3. Provision DynamoDB tables
+
+From `infrastructure`:
+
+```bash
+cd infrastructure
+npm run check
+npm run db:status
+npm run db:migrate
+```
+
+`check` reads account/bucket access and the listings table. `db:migrate` changes
+AWS resources: it applies pending migrations, enables PITR on application tables
+and records migration checksums in `relive-migrations`. `setup:database` is a legacy
+alias for the same migration runner. Never edit an already applied migration.
+
+| Table | Contents / indexes |
+| --- | --- |
+| `relive-users` | Profiles and email uniqueness records |
+| `relive-listings` | Listings; SellerIndex, StatusIndex; NEW_AND_OLD_IMAGES stream |
+| `relive-offers` | Offers, negotiation locks, history; BuyerIndex, SellerIndex, ListingIndex |
+| `relive-wallet` | Balances and wallet ledger; UserIndex |
+| `relive-purchases` | Purchases; BuyerIndex, SellerIndex |
+| `relive-favourites` | User/listing favourites |
+| `relive-notifications` | User notifications and read state |
+| `relive-reviews` | Transaction reviews; ReviewedUserIndex |
+| `relive-reports` | Moderation reports; StatusIndex |
+
+Tables use string PK/SK and on-demand capacity. Creating tables does not migrate
+legacy application data, seed cloud users or import SQLite accounts.
+
+### 4. Choose first cutover or routine deployment
+
+Read the checkpoint before choosing a path:
+
+```bash
+aws dynamodb get-item \
+  --table-name relive-migrations \
+  --key '{"PK":{"S":"DATA_MIGRATION"},"SK":{"S":"domain-v2"}}' \
+  --projection-expression '#p' --expression-attribute-names '{"#p":"phase"}' \
+  --region us-east-1 --no-cli-pager
+```
+
+**If the phase is CUTOVER, skip first-cutover copying and use section 5.** Do not
+rerun the legacy copy after the application has begun writing to the domain tables.
+
+For a first deployment/cutover only, from `infrastructure`:
+
+```bash
+export FRONTEND_ORIGIN=http://relive-web-cloudproject.s3-website-us-east-1.amazonaws.com
+node package-backend.js
+node migrate-domain-data.js
+node domain-maintenance.js freeze --apply
+node migrate-domain-data.js --apply
+node migrate-domain-data.js --verify
+node deploy-backend.js --apply --domain-cutover
+node deploy-api.js --apply
+node domain-maintenance.js resume --apply
+```
+
+Run each command separately and stop on errors. Freeze makes the API unavailable;
+stop external database writers too. Copy creates backups and checks destinations
+before recording READY. Resume checks deployment configuration, records CUTOVER
+and restores service concurrency. Keep `.domain-maintenance.json`: it contains the
+original concurrency settings. Do not resume a partially failed deployment or
+manually fabricate migration markers. First deployment into empty tables follows
+the same verification path. Register cloud accounts after deployment.
+
+### 5. Package and deploy the nine Lambda services
+
+For an environment already at CUTOVER, from `infrastructure`:
+
+```bash
+export FRONTEND_ORIGIN=http://relive-web-cloudproject.s3-website-us-east-1.amazonaws.com
+node package-backend.js
+node deploy-backend.js --apply
+```
+
+Packaging is local and produces `infrastructure/dist/relive-<service>.zip`.
+Deployment changes AWS and is sequential, not atomic. Each package contains bundled
+JavaScript with `index.handler`, Node.js 22, 512 MB memory and a 20-second timeout.
+
+| Function | Responsibility |
+| --- | --- |
+| `relive-auth` | Registration, login, logout, session lookup, health |
+| `relive-users` | Profiles, profile images, public profiles/reviews |
+| `relive-listings` | Listing CRUD and stream logging |
+| `relive-favourites` | Saved listings |
+| `relive-images` | Presigned image uploads |
+| `relive-offers` | Offers and negotiations |
+| `relive-payments` | Simulated top-ups, purchases, transactions and reviews |
+| `relive-dashboard` | Dashboard and notification read state |
+| `relive-moderation` | Reports and administrator decisions |
+
+Deployment preserves the signing secret and supplies domain-table names. It uses
+an existing role or LabRole by default; `LAMBDA_ROLE_ARN` can select an approved role.
+The caller needs deployment/PassRole permissions; the execution role needs the
+appropriate table/index, image-bucket, stream and CloudWatch permissions. The
+scripts do not grant IAM permissions or bypass lab restrictions.
+
+Optional `--mail-env` reads `backend/.env.mail.local` and applies SMTP variables
+only to `relive-auth`. **It does not implement password reset or send email.** Do
+not use it for normal deployment. Never package or commit the mail credentials.
+
+### 6. Deploy API Gateway, API key and CORS
+
+From `infrastructure`:
+
+```bash
+node deploy-api.js --apply
+```
+
+The script creates/reuses the uniquely named `relive-api` REST API, maps explicit
+methods directly to the service Lambdas, adds invocation permissions, configures
+OPTIONS and gateway error CORS headers, and deploys stage `v1`. Route definitions
+live in `infrastructure/services.js`. JWT checks happen inside Lambda; methods use
+`authorizationType: NONE`, not a Gateway authorizer.
+
+The script writes the actual API URL and `VITE_CLOUD_MODE=true` into
+`frontend/.env.production.local`, preserving the existing client-key value.
+Use the printed URL, not an old API ID from a screenshot.
+
+It provisions `relive-v1-client` and `relive-v1-plan`. Stage throttling is rate 5,
+burst 10. A newly created usage plan has rate 5, burst 10 and a 10,000/day quota;
+existing plan limits are not overwritten. Inspect the console to verify actual values.
+
+To enforce the client key deliberately:
+
+1. Retrieve the key value privately in **API Gateway → API keys → relive-v1-client**.
+2. Add it to `frontend/.env.production.local`:
+
+```ini
+VITE_API_KEY=YOUR_CLIENT_API_KEY
+```
+
+3. From `infrastructure`, deploy enforcement:
+
+```bash
+API_KEY_REQUIRED=true node deploy-api.js --apply
+```
+
+4. Immediately rebuild/publish the frontend in section 7. Coordinate this change
+   because an older frontend without the key will be rejected during the transition.
+
+Health, registration, login, forgot-password and OPTIONS are exempt. Existing method
+key requirements are retained on routine deployments when API_KEY_REQUIRED is omitted;
+new methods use its current setting. Set it explicitly to true when adding routes
+that should require keys. Browser API keys are visible to clients and do not replace JWT
+or ownership checks. Usage plans are not a hard spending limit.
+
+### 7. Build and upload the website
+
+From `infrastructure`, switch to `frontend`:
+
+```bash
+cd ../frontend
+npm run build
+aws s3 sync dist/ s3://relive-web-cloudproject --region us-east-1
+```
+
+Only the contents of `dist/` are uploaded. Environment changes require rebuilding.
+Open the S3 website endpoint from its Properties tab. In browser Network tools,
+confirm requests use the deployed HTTPS API, not localhost or an older API ID.
+Cloud mode uses JWT bearer tokens in sessionStorage; local mode uses cookies.
+
+### 8. Create the cloud administrator
+
+Register the intended account through the cloud website first. From
+`infrastructure`, preview and then apply its role change:
+
+```bash
+node set-admin.js 'admin@relive.local'
+node set-admin.js 'admin@relive.local' --apply
+```
+
+Use the actual registered email. If ADMIN_EMAIL reserves that address, register
+another intended admin address. Log out/in after promotion. Local SQLite seeding
+does not create a cloud administrator. Never submit account passwords in reports.
+
+### 9. Verify the deployment and stream
+
+From `infrastructure`, run local checks (these do not prove deployed IAM access):
+
+```bash
+npm test
+npm --prefix ../backend test
+```
+
+Set API_BASE to the actual printed API URL:
+
+```bash
+export API_BASE='https://YOUR_API_ID.execute-api.us-east-1.amazonaws.com/v1/api'
+curl -i "$API_BASE/health"
+```
+
+Verify registration/login/logout, listing creation/image/edit/withdrawal, favourites,
+offer/counteroffer/acceptance, wallet top-up, purchase and seller credit, reviews,
+notification read state, reporting and admin investigation/removal/restoration.
+Match website results with the relevant DynamoDB records. Test missing JWT (401),
+missing required key (403) and invalid listing input (400). Check OPTIONS headers
+and actual responses in browser Network tools, hiding tokens/key values.
+
+Check the stream mapping:
+
+```bash
+aws lambda list-event-source-mappings \
+  --function-name relive-listings --region us-east-1 \
+  --query 'EventSourceMappings[].{UUID:UUID,State:State,Result:LastProcessingResult}' \
+  --output table --no-cli-pager
+
+aws logs tail /aws/lambda/relive-listings --since 15m --region us-east-1
+
+aws logs filter-log-events \
+  --log-group-name /aws/lambda/relive-listings \
+  --filter-pattern '"listing_stream_record"' \
+  --region us-east-1 --no-cli-pager
+```
+
+Creating a listing should produce INSERT; editing/withdrawal produces MODIFY.
+Match listing keys and timestamps, not HTTP and stream invocation IDs: those are
+separate executions. CloudWatch monitoring also exposes Invocations, Errors and
+Duration. Handled HTTP 400 responses are not necessarily Lambda invocation Errors.
+
+The deployment creates a missing mapping with Enabled=true, but does not re-enable
+an existing disabled mapping. Inspect its LastProcessingResult first. If permissions
+are available, re-enable it in Lambda Configuration → Triggers, or use the actual UUID:
+
+```bash
+aws lambda update-event-source-mapping \
+  --uuid YOUR_MAPPING_UUID --enabled --region us-east-1
+```
+
+An explicit SCP denial cannot be overridden by an IAM Allow or this command. Do not
+claim a lab restart always disables the mapping; investigate the observed error.
+The current consumer logs changes only; it does not send notifications or emails.
+
+### 10. Backup and recovery
+
+From `infrastructure`, select a table explicitly:
+
+```bash
+TABLE_NAME=relive-users npm run backup:create
+TABLE_NAME=relive-users npm run backup:list
+```
+
+Without TABLE_NAME, the script defaults to `relive-listings`. To back up all nine
+application tables sequentially:
+
+```bash
+for table in relive-users relive-listings relive-offers relive-wallet \
+  relive-purchases relive-favourites relive-notifications relive-reviews relive-reports
+do
+  TABLE_NAME="$table" npm run backup:create || break
+done
+```
+
+This creates separate on-demand backups, not a scheduled job or an atomic
+cross-table snapshot. Pause writes for a consistent multi-table recovery exercise.
+Creation waits for AVAILABLE. Restore a chosen backup to a new, unused table:
+
+```bash
+BACKUP_ARN='YOUR_AVAILABLE_BACKUP_ARN' \
+RESTORE_TABLE_NAME='relive-listings-restore-evidence' \
+npm run backup:restore
+```
+
+The restore script starts the restore but does not wait for completion. Inspect
+DynamoDB until ACTIVE, then query a known PK/SK and compare field values. Do not
+point the live app at a restored table without reviewing indexes and operational
+settings. For PITR, use the table's Backups tab to select a time inside its recovery
+window and restore to a new table; verify the values from that time.
+
+### 11. Routine update commands
+
+These commands assume existing resources and a CUTOVER checkpoint. Run from the
+project root, choosing only the relevant block.
+
+**Frontend-only changes:**
+
+```bash
+cd frontend
+npm run build
+aws s3 sync dist/ s3://relive-web-cloudproject --region us-east-1
+```
+
+**Backend implementation changes:**
+
+```bash
+cd infrastructure
+node package-backend.js
+node deploy-backend.js --apply
+```
+
+**API paths/security changes:**
+
+```bash
+cd infrastructure
+API_KEY_REQUIRED=true node deploy-api.js --apply
+cd ../frontend
+npm run build
+aws s3 sync dist/ s3://relive-web-cloudproject --region us-east-1
+```
+
+**New database migrations:** from `infrastructure`, inspect `npm run db:status`,
+then run `npm run db:migrate` before deploying code that depends on them. Never
+rerun the original domain-data copy for a routine update.
+
+### 12. Troubleshooting and boundaries
+
+| Symptom | Check |
+| --- | --- |
+| ExpiredToken / UnrecognizedClient | Refresh all three temporary credentials; verify STS identity |
+| `voc-cancel-cred` denial | Lab/session restriction; refresh the session and inspect the exact denial |
+| First domain deployment guard | Follow first-cutover steps, not a manually edited checkpoint |
+| Website still uses old API | Check production env, rebuild, upload, then hard-refresh |
+| Browser cannot reach API | Network request URL, API health, frontend origin and CORS |
+| Route not found | services.js, deployed API methods and correct Lambda package |
+| Listing absent from Marketplace | ACTIVE status, StatusIndex keys, correct table and index propagation |
+| Admin account not found | Register it in the cloud before set-admin.js |
+| Stream disabled | LastProcessingResult, execution role and organisational restrictions |
+
+CloudFront access was denied in this Learner Lab; these instructions do not assume
+it is deployed. No automatic S3 orphan-image cleanup or email recovery is deployed.
+Wallet/notification summaries refresh after relevant actions and periodically across
+sessions; there is no WebSocket push implementation. Old source balances, if present
+on legacy user profiles, are not the authoritative domain wallet balances.
+
+Do not run `cleanup-legacy-users.js`, `remove-demo-account.js` or
+`remove-apakhabar-demo.js` as setup steps. They are destructive, separately reviewed
+cleanup tools for specific records, not migrations or general deployment commands.
+
+For submission, include readable source, deployed S3 assets, Lambda ZIPs and database
+exports/backup evidence. Exclude `.env*`, AWS credentials, Gmail App Passwords and
+`node_modules`. Native DynamoDB backups remain managed in AWS; a JSON scan export
+is a logical data copy, not the same as a native backup or PITR snapshot.
+
+---
+
+## Original local application guide
+
+The remaining sections describe **Express/SQLite local mode**. SQLite-specific
+indexes, cookies, seeding and file-upload behaviour do not describe the Lambda
+backend. Use the AWS guide above for cloud deployment; older infrastructure notes
+may describe historical stages of the migration.
 
 ## Requirements
 - Node.js 22.12+ (verified with 22.19) and npm
